@@ -4,12 +4,13 @@ Real-time anime character animation from a webcam or video file using pose-condi
 
 **RTX 5070 Ti benchmarks (pure engine throughput, no I/O):**
 
-| Backend | 256×256 | 384×384 | 512×512 |
-|---|---|---|---|
-| SD-Turbo + T2I + CUDA graph | **~124 FPS** | **~73 FPS** | **~49 FPS** |
-| SD-Turbo + T2I (eager) | ~27 FPS | ~25 FPS | — |
-| LCM + T2I-Adapter | — | ~25 FPS | ~15 FPS |
-| LCM + ControlNet | — | ~19 FPS | — |
+| Backend | 256×256 | 384×384 | 512×512 | Quality |
+|---|---|---|---|---|
+| KohakuV2 + LCM-LoRA + CUDA graph | **~120 FPS** | **~73 FPS** | **~48 FPS** | ★★★★ anime |
+| SD-Turbo + T2I + CUDA graph | **~124 FPS** | **~73 FPS** | **~49 FPS** | ★★★ generic |
+| SD-Turbo + T2I (eager) | ~27 FPS | ~25 FPS | — | ★★★ generic |
+| LCM + T2I-Adapter | — | ~25 FPS | ~15 FPS | ★★★ generic |
+| LCM + ControlNet | — | ~19 FPS | — | ★★★ generic |
 
 ## How it works
 
@@ -35,15 +36,14 @@ uv sync
 
 ```powershell
 # Quality presets (easiest way to tune speed vs quality)
-uv run live2d --quality fast       # 256px, no hands, ~124 FPS
+uv run live2d --quality fast       # 256px, no hands, ~120 FPS
 uv run live2d --quality balanced   # 384px, default, ~73 FPS
-uv run live2d --quality quality    # 512px, ~49 FPS
+uv run live2d --quality quality    # 512px, ~48 FPS
 
 # Manual control
 uv run live2d --source 0                   # webcam
-uv run live2d --size 256                   # fast mode (~124 FPS)
-uv run live2d --size 512 --steps 2         # quality mode (~25 FPS)
-uv run live2d --backend sdturbo_graph      # default, ~73 FPS
+uv run live2d --backend lcm_graph          # default, KohakuV2 anime, ~73 FPS
+uv run live2d --backend sdturbo_graph      # SD-Turbo, ~73 FPS
 uv run live2d --backend sdturbo            # eager, ~25 FPS
 uv run live2d --backend t2i
 uv run live2d --backend controlnet
@@ -64,8 +64,8 @@ Or use the convenience script:
 | `--source` | `assets/test_input.mp4` | Video file path or webcam index |
 | `--steps` | `1` | LCM inference steps (1–4) |
 | `--size` | `384` | Output resolution: 256 / 384 / 512 |
-| `--quality` | — | `fast` (~124 FPS) / `balanced` (~73 FPS) / `quality` (~49 FPS) |
-| `--backend` | `sdturbo_graph` | `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
+| `--quality` | — | `fast` (~120 FPS) / `balanced` (~73 FPS) / `quality` (~48 FPS) |
+| `--backend` | `lcm_graph` | `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
 | `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
 | `--prompt` | see config.py | Generation prompt |
 | `--no-skeleton` | off | Hide skeleton overlay |
@@ -120,7 +120,8 @@ run.ps1                     # convenience launcher (uv sync + run)
 src/
   capture.py                # threaded video capture
   pose_extractor.py         # MediaPipe -> OpenPose skeleton map
-  diffusion_engine_sdturbo_graph.py  # SD-Turbo + T2I-Adapter + CUDA graph (default)
+  diffusion_engine_lcm_graph.py              # KohakuV2 + LCM-LoRA + CUDA graph (default)
+  diffusion_engine_sdturbo_graph.py          # SD-Turbo + T2I-Adapter + CUDA graph
   diffusion_engine_sdturbo.py        # SD-Turbo + T2I-Adapter eager
   diffusion_engine_t2i.py            # LCM + T2I-Adapter
   diffusion_engine.py                # LCM + ControlNet
