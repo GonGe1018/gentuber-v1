@@ -20,7 +20,7 @@ import numpy as np
 
 from config import cfg
 from src.capture import VideoCapture
-from src.diffusion_engine_t2i import DiffusionEngineT2I
+from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 
@@ -35,7 +35,7 @@ def pose_worker(capture, extractor, pose_queue, raw_queue, stop_event):
         if frame_bgr is None:
             continue
         control_map, _ = extractor.process(frame_bgr)
-        # Store both raw frame and skeleton
+        ctrl = extractor.preprocess(control_map)
         item = (frame_bgr.copy(), control_map)
         for q in [pose_queue, raw_queue]:
             if q.full():
@@ -43,7 +43,7 @@ def pose_worker(capture, extractor, pose_queue, raw_queue, stop_event):
                     q.get_nowait()
                 except queue.Empty:
                     pass
-        pose_queue.put(control_map)
+        pose_queue.put(ctrl)
         raw_queue.put(item)
 
 
@@ -59,7 +59,9 @@ def main():
 
     capture = VideoCapture(cfg.video_source, width=W, height=H, queue_size=2, loop=True)
     extractor = PoseExtractor(width=W, height=H)
-    engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
+    engine = DiffusionEngineSDTurboGraph(
+        cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+    )
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
 
     engine.load()
