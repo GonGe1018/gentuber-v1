@@ -46,7 +46,9 @@ class Config:
     pose_queue_size: int = 2
     output_queue_size: int = 4
 
-    # Temporal smoothing: blend ratio between prev and current frame
+    # Pose extraction
+    # detect_hands=False saves ~6ms/frame (hand model skipped)
+    detect_hands: bool = True
     #   0.0 = no smoothing (raw output)
     #   0.3 = recommended (reduces flicker without adding lag)
     #   1.0 = always show latest frame

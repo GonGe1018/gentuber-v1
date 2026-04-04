@@ -126,7 +126,11 @@ def main() -> None:
         queue_size=cfg.capture_queue_size,
         loop=True,
     )
-    extractor = PoseExtractor(width=cfg.capture_width, height=cfg.capture_height)
+    extractor = PoseExtractor(
+        width=cfg.capture_width,
+        height=cfg.capture_height,
+        detect_hands=cfg.detect_hands,
+    )
     # Select engine backend from config
     if cfg.engine_backend == "t2i":
         engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)

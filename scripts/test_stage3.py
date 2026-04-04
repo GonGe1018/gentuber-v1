@@ -22,7 +22,7 @@ from src.diffusion_engine_t2i import DiffusionEngineT2I
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 
-N_FRAMES = 150
+N_FRAMES = 300
 OUTPUT = Path("assets/stage3_output.mp4")
 
 # Resolution override for this test (matches config default)
@@ -63,7 +63,7 @@ def main():
         queue_size=2,
         loop=True,
     )
-    extractor = PoseExtractor(width=cfg.capture_width, height=cfg.capture_height)
+    extractor = PoseExtractor(width=TEST_WIDTH, height=TEST_HEIGHT, detect_hands=True)
     engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
 
