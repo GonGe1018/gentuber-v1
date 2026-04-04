@@ -116,19 +116,33 @@ Downloaded automatically on first run to `~/.cache/huggingface/`:
 ```
 main.py                     # pipeline orchestration
 config.py                   # all tunable parameters
+run.ps1                     # convenience launcher (uv sync + run)
 src/
   capture.py                # threaded video capture
-  pose_extractor.py         # MediaPipe → OpenPose skeleton map
-  diffusion_engine.py       # LCM + ControlNet
-  diffusion_engine_t2i.py   # LCM + T2I-Adapter
+  pose_extractor.py         # MediaPipe -> OpenPose skeleton map
   diffusion_engine_sdturbo_graph.py  # SD-Turbo + T2I-Adapter + CUDA graph (default)
-  interpolator.py           # temporal frame blending
-  renderer.py               # OpenCV display + FPS overlay
+  diffusion_engine_sdturbo.py        # SD-Turbo + T2I-Adapter eager
+  diffusion_engine_t2i.py            # LCM + T2I-Adapter
+  diffusion_engine.py                # LCM + ControlNet
+  interpolator.py           # temporal frame blending (cv2.addWeighted)
+  renderer.py               # OpenCV display + FPS overlay + rate cap
 scripts/
-  test_stage1.py            # pose extraction benchmark
+  test_stage1.py            # pose extraction benchmark (54 FPS)
   test_stage3.py            # end-to-end pipeline benchmark
-  bench_all.py              # full benchmark matrix
-  bench_throughput.py       # pure engine throughput (no I/O)
+  test_graph_engine.py      # CUDA graph engine benchmark
+  test_t2i_adapter.py       # T2I-Adapter engine benchmark
+  test_webcam.py            # live webcam test with display
+  bench_all.py              # full benchmark matrix (all backends x resolutions)
+  bench_throughput.py       # pure engine throughput (no I/O bottleneck)
+  bench_latency.py          # end-to-end latency (7.2ms avg @ 384x384)
+  bench_cuda_graphs.py      # CUDA graph vs eager UNet comparison
+  bench_sdturbo.py          # SD-Turbo vs LCM isolated comparison
+  bench_gil_contention.py   # GIL contention measurement (0.3%)
+  bench_int8.py             # INT8 quantization (slower on Windows)
+  bench_fp8.py              # FP8 quantization (slower without calibration)
+  bench_sdxl_turbo.py       # SDXL-Turbo (16 FPS, not viable)
+  bench_torch_compile.py    # torch.compile (fails on Windows/no Triton)
+  bench_dtype.py            # dtype comparison (fp16 vs bf16)
   profile_worker.py         # per-op latency breakdown of engine hot path
   quality_check.py          # side-by-side comparison video
   make_test_video.py        # generate synthetic test input
