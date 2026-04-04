@@ -192,8 +192,21 @@ class DiffusionEngineSDTurboGraph:
         torch.set_num_threads(2)
         generator = torch.Generator(device=device).manual_seed(42)
 
-        # Pre-allocate output latent buffer
-        out_latents = torch.zeros(1, 4, lH, lW, dtype=dtype, device=device)
+        # Pre-generate a ring of noise tensors to avoid randn on the hot path
+        NOISE_RING = 64
+        noise_ring = [
+            torch.randn((1, 4, lH, lW), dtype=dtype, device=device, generator=generator)
+            for _ in range(NOISE_RING)
+        ]
+        noise_idx = 0
+
+        # Async D2H: pinned output buffer for zero-copy GPU->CPU
+        pinned_out = torch.empty((H, W, 3), dtype=torch.float32, pin_memory=True)
+        copy_stream = torch.cuda.Stream()
+        prev_frame_ready = False
+
+        t = pipe.scheduler.timesteps[0]
+        sigma = float(pipe.scheduler.sigmas[0])
 
         while self._running:
             # Drain queue — keep freshest frame
@@ -230,13 +243,9 @@ class DiffusionEngineSDTurboGraph:
             torch.cuda.current_stream().wait_stream(self._transfer_stream)
 
             with torch.inference_mode():
-                # ── Prepare noisy latents ─────────────────────────────────
-                noise = torch.randn(
-                    1, 4, lH, lW, dtype=dtype, device=device, generator=generator
-                )
-                # SD-Turbo 1-step: t=999, scale latents by scheduler
-                t = pipe.scheduler.timesteps[0]
-                sigma = pipe.scheduler.sigmas[0]
+                # ── Prepare noisy latents (from pre-generated ring) ───────
+                noise = noise_ring[noise_idx]
+                noise_idx = (noise_idx + 1) % NOISE_RING
                 latents = noise * sigma
 
                 # ── Update static tensors in-place ────────────────────────
@@ -249,10 +258,18 @@ class DiffusionEngineSDTurboGraph:
                 # ── Replay CUDA graph (adapter + UNet + VAE) ─────────────
                 self._graph.replay()
 
-                # ── D2H copy of decoded frame ─────────────────────────────
+                # ── Async D2H: copy decoded frame on separate stream ──────
                 # _static_decoded: (1,3,H,W) float16 in [-1,1]
-                frame_t = (self._static_decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
-                frame = (frame_t.clamp(0, 1).cpu().numpy() * 255).astype(np.uint8)
+                with torch.cuda.stream(copy_stream):
+                    frame_gpu = (
+                        self._static_decoded[0].permute(1, 2, 0).float() + 1.0
+                    ) * 0.5
+                    frame_gpu = frame_gpu.clamp(0, 1)
+                    pinned_out.copy_(frame_gpu, non_blocking=True)
+
+            # Wait for D2H copy to complete
+            torch.cuda.current_stream().wait_stream(copy_stream)
+            frame = (pinned_out.numpy() * 255).astype(np.uint8)
 
             if self.out_queue.full():
                 try:
