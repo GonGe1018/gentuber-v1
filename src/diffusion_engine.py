@@ -221,7 +221,14 @@ class DiffusionEngine:
                     continue
 
             # ── Upload control map to GPU ─────────────────────────────────
-            ctrl_np = control_map.transpose(2, 0, 1).astype(np.float16) / 255.0
+            if (
+                control_map.dtype == np.float16
+                and control_map.ndim == 3
+                and control_map.shape[0] == 3
+            ):
+                ctrl_np = control_map
+            else:
+                ctrl_np = control_map.transpose(2, 0, 1).astype(np.float16) / 255.0
             self._pinned_buf[0].copy_(torch.from_numpy(ctrl_np), non_blocking=False)
             with torch.cuda.stream(self._transfer_stream):
                 ctrl_tensor = self._pinned_buf.to(
