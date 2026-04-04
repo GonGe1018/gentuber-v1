@@ -92,10 +92,16 @@ def parse_args():
         choices=["fast", "balanced", "quality"],
         default=None,
         help=(
-            "fast: 256px, no-hands (~80 FPS)  "
-            "balanced: 384px (~47 FPS, default)  "
-            "quality: 512px (~30 FPS)"
+            "fast: 256px, no-hands (~124 FPS)  "
+            "balanced: 384px (~73 FPS, default)  "
+            "quality: 512px (~49 FPS)"
         ),
+    )
+    p.add_argument(
+        "--max-fps",
+        type=float,
+        default=60.0,
+        help="Cap display refresh rate (default: 60, 0=uncapped)",
     )
     return p.parse_args()
 
@@ -201,6 +207,7 @@ def main() -> None:
         title=cfg.window_title,
         show_fps=cfg.show_fps,
         show_skeleton=cfg.show_skeleton_overlay,
+        max_fps=args.max_fps,
     )
 
     # Load + warmup models (blocks until ready)
