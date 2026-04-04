@@ -18,7 +18,7 @@ import numpy as np
 
 from config import cfg
 from src.capture import VideoCapture
-from src.diffusion_engine import DiffusionEngine
+from src.diffusion_engine_t2i import DiffusionEngineT2I
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 
@@ -64,7 +64,7 @@ def main():
         loop=True,
     )
     extractor = PoseExtractor(width=cfg.capture_width, height=cfg.capture_height)
-    engine = DiffusionEngine(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
+    engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
 
     engine.load()
