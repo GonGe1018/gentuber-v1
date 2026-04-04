@@ -45,6 +45,7 @@ from src.diffusion_engine import DiffusionEngine
 from src.diffusion_engine_t2i import DiffusionEngineT2I
 from src.diffusion_engine_sdturbo import DiffusionEngineSDTurbo
 from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
+from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
@@ -72,9 +73,9 @@ def parse_args():
     )
     p.add_argument(
         "--backend",
-        choices=["sdturbo_graph", "sdturbo", "t2i", "controlnet"],
+        choices=["lcm_graph", "sdturbo_graph", "sdturbo", "t2i", "controlnet"],
         default=None,
-        help="sdturbo_graph (~73 FPS), sdturbo (~25 FPS), t2i (~25 FPS), controlnet (~19 FPS)",
+        help="lcm_graph (~73 FPS, best quality), sdturbo_graph (~73 FPS), sdturbo (~25 FPS), t2i (~25 FPS), controlnet (~19 FPS)",
     )
     p.add_argument(
         "--size",
@@ -190,7 +191,11 @@ def main() -> None:
         detect_hands=cfg.detect_hands,
     )
     # Select engine backend from config
-    if cfg.engine_backend == "sdturbo_graph":
+    if cfg.engine_backend == "lcm_graph":
+        engine = DiffusionEngineLCMGraph(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    elif cfg.engine_backend == "sdturbo_graph":
         engine = DiffusionEngineSDTurboGraph(
             cfg=cfg, in_queue=pose_queue, out_queue=out_queue
         )
