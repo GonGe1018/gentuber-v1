@@ -16,14 +16,19 @@ from mediapipe.tasks.python import vision as mp_vision
 
 # ── Model URLs (official Google storage) ────────────────────────────────────
 _MODELS_DIR = Path(__file__).parent.parent / "assets" / "models"
+
+# "lite" model: ~3ms/frame vs ~17ms for "full" — enough for real-time skeleton
 _POSE_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
-    "pose_landmarker_full/float16/latest/pose_landmarker_full.task"
+    "pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
 )
+_POSE_MODEL_FILE = "pose_landmarker_lite.task"
+
 _HAND_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
     "hand_landmarker/float16/latest/hand_landmarker.task"
 )
+_HAND_MODEL_FILE = "hand_landmarker.task"
 
 # ── OpenPose colour palette ──────────────────────────────────────────────────
 _POSE_COLORS = [
@@ -136,8 +141,8 @@ class PoseExtractor:
         self.width = width
         self.height = height
 
-        pose_path = _MODELS_DIR / "pose_landmarker_full.task"
-        hand_path = _MODELS_DIR / "hand_landmarker.task"
+        pose_path = _MODELS_DIR / _POSE_MODEL_FILE
+        hand_path = _MODELS_DIR / _HAND_MODEL_FILE
         _download_model(_POSE_MODEL_URL, pose_path)
         _download_model(_HAND_MODEL_URL, hand_path)
 
