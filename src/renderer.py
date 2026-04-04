@@ -18,6 +18,7 @@ class Renderer:
     show_fps : bool
     show_skeleton : bool   — if True, blend the skeleton control map on top
     skeleton_alpha : float — opacity of skeleton overlay (0–1)
+    max_fps : float        — cap display rate (0 = uncapped)
     """
 
     def __init__(
@@ -26,11 +27,14 @@ class Renderer:
         show_fps: bool = True,
         show_skeleton: bool = True,
         skeleton_alpha: float = 0.25,
+        max_fps: float = 60.0,
     ):
         self.title = title
         self.show_fps = show_fps
         self.show_skeleton = show_skeleton
         self.skeleton_alpha = skeleton_alpha
+        self._min_interval = 1.0 / max_fps if max_fps > 0 else 0.0
+        self._last_show = 0.0
 
         self._fps_counter = _FPSCounter()
         cv2.namedWindow(title, cv2.WINDOW_NORMAL)
@@ -40,29 +44,27 @@ class Renderer:
         frame_rgb: np.ndarray,
         skeleton_rgb: np.ndarray | None = None,
     ) -> bool:
-        """
-        Render one frame.
+        # Rate cap — skip display if we're ahead of monitor refresh
+        now = time.perf_counter()
+        if self._min_interval > 0 and (now - self._last_show) < self._min_interval:
+            key = cv2.waitKey(1) & 0xFF
+            return key != ord("q")
+        self._last_show = now
 
-        Parameters
-        ----------
-        frame_rgb    : np.ndarray  RGB uint8 (H×W×3) — generated anime frame
-        skeleton_rgb : np.ndarray  RGB uint8 (H×W×3) — pose control map (optional)
-
-        Returns
-        -------
-        bool — False if the user pressed 'q' or closed the window
-        """
         display = frame_rgb.copy()
 
-        # Blend skeleton overlay
+        # Skeleton overlay — use cv2.addWeighted on masked region
         if self.show_skeleton and skeleton_rgb is not None:
             mask = skeleton_rgb.sum(axis=2) > 0
-            overlay = display.copy()
-            overlay[mask] = (
-                self.skeleton_alpha * skeleton_rgb[mask].astype(np.float32)
-                + (1 - self.skeleton_alpha) * display[mask].astype(np.float32)
-            ).astype(np.uint8)
-            display = overlay
+            if mask.any():
+                # Blend only where skeleton is non-zero (faster than full-frame blend)
+                display[mask] = cv2.addWeighted(
+                    skeleton_rgb,
+                    self.skeleton_alpha,
+                    display,
+                    1.0 - self.skeleton_alpha,
+                    0,
+                )[mask]
 
         # FPS counter
         fps = self._fps_counter.tick()
@@ -78,7 +80,6 @@ class Renderer:
                 cv2.LINE_AA,
             )
 
-        # Convert RGB → BGR for OpenCV
         bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
         cv2.imshow(self.title, bgr)
 
@@ -90,7 +91,7 @@ class Renderer:
 
 
 class _FPSCounter:
-    def __init__(self, window: int = 30):
+    def __init__(self, window: int = 60):
         self._times: list[float] = []
         self._window = window
 
