@@ -35,16 +35,16 @@ uv sync
 
 ```powershell
 # Quality presets (easiest way to tune speed vs quality)
-uv run live2d --quality fast       # 256px, no hands, ~80 FPS
-uv run live2d --quality balanced   # 384px, default, ~47 FPS
-uv run live2d --quality quality    # 512px, ~30 FPS
+uv run live2d --quality fast       # 256px, no hands, ~124 FPS
+uv run live2d --quality balanced   # 384px, default, ~73 FPS
+uv run live2d --quality quality    # 512px, ~49 FPS
 
 # Manual control
 uv run live2d --source 0                   # webcam
-uv run live2d --size 256                   # fast mode (~80 FPS)
-uv run live2d --size 512 --steps 2         # quality mode (~15 FPS)
-uv run live2d --backend sdturbo_graph      # default, ~47 FPS
-uv run live2d --backend sdturbo            # eager, ~24 FPS
+uv run live2d --size 256                   # fast mode (~124 FPS)
+uv run live2d --size 512 --steps 2         # quality mode (~25 FPS)
+uv run live2d --backend sdturbo_graph      # default, ~73 FPS
+uv run live2d --backend sdturbo            # eager, ~25 FPS
 uv run live2d --backend t2i
 uv run live2d --backend controlnet
 ```
@@ -64,8 +64,9 @@ Or use the convenience script:
 | `--source` | `assets/test_input.mp4` | Video file path or webcam index |
 | `--steps` | `1` | LCM inference steps (1–4) |
 | `--size` | `384` | Output resolution: 256 / 384 / 512 |
-| `--quality` | — | `fast` (~80 FPS) / `balanced` (~47 FPS) / `quality` (~30 FPS) |
+| `--quality` | — | `fast` (~124 FPS) / `balanced` (~73 FPS) / `quality` (~49 FPS) |
 | `--backend` | `sdturbo_graph` | `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
+| `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
 | `--prompt` | see config.py | Generation prompt |
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
