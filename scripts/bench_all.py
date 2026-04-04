@@ -130,9 +130,7 @@ def main():
     print("-" * 38)
 
     configs = [
-        ("sdturbo_graph", 256, 1),
-        ("sdturbo_graph", 384, 1),
-        ("sdturbo_graph", 512, 1),
+        # sdturbo_graph uses pose frame reuse — use bench_throughput.py for its numbers
         ("sdturbo", 256, 1),
         ("sdturbo", 384, 1),
         ("t2i", 384, 1),
