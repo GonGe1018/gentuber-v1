@@ -6,7 +6,8 @@ Real-time anime character animation from a webcam or video file using pose-condi
 
 | Backend | FPS |
 |---|---|
-| SD-Turbo + T2I-Adapter | ~24 |
+| SD-Turbo + T2I-Adapter + CUDA graph | ~47 |
+| SD-Turbo + T2I-Adapter (eager) | ~24 |
 | LCM + T2I-Adapter | ~23 |
 | LCM + ControlNet | ~18 |
 
@@ -49,8 +50,10 @@ uv run live2d --size 512 --steps 2
 uv run live2d --prompt "samurai warrior, detailed armor, white background"
 
 # Switch backend
-uv run live2d --backend t2i
-uv run live2d --backend controlnet
+    uv run live2d --backend sdturbo_graph   # default, ~47 FPS
+    uv run live2d --backend sdturbo         # eager, ~24 FPS
+    uv run live2d --backend t2i
+    uv run live2d --backend controlnet
 ```
 
 Press `q` in the display window to quit.
@@ -68,7 +71,7 @@ Or use the convenience script:
 | `--source` | `assets/test_input.mp4` | Video file path or webcam index |
 | `--steps` | `1` | LCM inference steps (1–4) |
 | `--size` | `384` | Output resolution: 256 / 384 / 512 |
-| `--backend` | `sdturbo` | `sdturbo` / `t2i` / `controlnet` |
+| `--backend` | `sdturbo_graph` | `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
 | `--prompt` | see config.py | Generation prompt |
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
@@ -123,7 +126,7 @@ src/
   pose_extractor.py         # MediaPipe → OpenPose skeleton map
   diffusion_engine.py       # LCM + ControlNet
   diffusion_engine_t2i.py   # LCM + T2I-Adapter
-  diffusion_engine_sdturbo.py  # SD-Turbo + T2I-Adapter (default)
+  diffusion_engine_sdturbo_graph.py  # SD-Turbo + T2I-Adapter + CUDA graph (default)
   interpolator.py           # temporal frame blending
   renderer.py               # OpenCV display + FPS overlay
 scripts/
