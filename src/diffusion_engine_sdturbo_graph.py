@@ -200,74 +200,102 @@ class DiffusionEngineSDTurboGraph:
         ]
         noise_idx = 0
 
-        # Async D2H: pinned output buffer for zero-copy GPU->CPU
+        # Double-buffer H2D: while graph replays on frame N, upload frame N+1
+        # Two pinned CPU buffers + two GPU staging buffers (ping-pong)
+        pinned_A = torch.empty((1, 3, H, W), dtype=torch.float16, pin_memory=True)
+        pinned_B = torch.empty((1, 3, H, W), dtype=torch.float16, pin_memory=True)
+        gpu_A = torch.empty(
+            (1, 3, H, W), dtype=dtype, device=device, memory_format=torch.channels_last
+        )
+        gpu_B = torch.empty(
+            (1, 3, H, W), dtype=dtype, device=device, memory_format=torch.channels_last
+        )
+
+        # Async D2H: pinned output buffer
         pinned_out = torch.empty((H, W, 3), dtype=torch.float32, pin_memory=True)
         copy_stream = torch.cuda.Stream()
-        prev_frame_ready = False
 
         t = pipe.scheduler.timesteps[0]
         sigma = float(pipe.scheduler.sigmas[0])
 
-        while self._running:
-            # Drain queue — keep freshest frame
-            control_map = None
+        def upload_ctrl(ctrl_map, pinned, gpu_buf):
+            """Upload control map to GPU on transfer_stream. Returns event."""
+            np_ctrl = ctrl_map.transpose(2, 0, 1).astype(np.float16) / 255.0
+            pinned[0].copy_(torch.from_numpy(np_ctrl), non_blocking=False)
+            with torch.cuda.stream(self._transfer_stream):
+                gpu_buf.copy_(pinned, non_blocking=True)
+            return self._transfer_stream
+
+        def get_control_map():
+            """Drain queue and return freshest control map, blocking if empty."""
+            ctrl = None
             try:
                 while True:
                     item = self.in_queue.get_nowait()
                     if item is None:
                         self._running = False
-                        break
-                    control_map = item
+                        return None
+                    ctrl = item
             except queue.Empty:
                 pass
-
-            if not self._running:
-                break
-
-            if control_map is None:
+            if ctrl is None:
                 try:
-                    control_map = self.in_queue.get(timeout=0.05)
-                    if control_map is None:
+                    ctrl = self.in_queue.get(timeout=0.05)
+                    if ctrl is None:
                         self._running = False
-                        break
+                        return None
                 except queue.Empty:
-                    continue
+                    pass
+            return ctrl
 
-            # ── Upload control map ────────────────────────────────────────
-            ctrl_np = control_map.transpose(2, 0, 1).astype(np.float16) / 255.0
-            self._pinned_buf[0].copy_(torch.from_numpy(ctrl_np), non_blocking=False)
-            with torch.cuda.stream(self._transfer_stream):
-                ctrl_gpu = self._pinned_buf.to(
-                    device=device, non_blocking=True, memory_format=torch.channels_last
-                )
-            torch.cuda.current_stream().wait_stream(self._transfer_stream)
+        # Bootstrap: upload first frame
+        first_ctrl = get_control_map()
+        if first_ctrl is None:
+            return
+        upload_ctrl(first_ctrl, pinned_A, gpu_A)
+        torch.cuda.current_stream().wait_stream(self._transfer_stream)
+        self._static_ctrl.copy_(gpu_A)
 
+        # Ping-pong state
+        next_pinned, next_gpu = pinned_B, gpu_B
+        next_ctrl_ready = False
+
+        while self._running:
             with torch.inference_mode():
-                # ── Prepare noisy latents (from pre-generated ring) ───────
+                # ── Prepare noisy latents ─────────────────────────────────
                 noise = noise_ring[noise_idx]
                 noise_idx = (noise_idx + 1) % NOISE_RING
-                latents = noise * sigma
-
-                # ── Update static tensors in-place ────────────────────────
                 self._static_latents.copy_(
-                    latents.to(memory_format=torch.channels_last)
+                    (noise * sigma).to(memory_format=torch.channels_last)
                 )
-                self._static_ctrl.copy_(ctrl_gpu)
                 self._static_timestep.fill_(int(t))
+
+                # ── Prefetch next control map while graph replays ─────────
+                next_ctrl = get_control_map()
+                if next_ctrl is not None:
+                    upload_ctrl(next_ctrl, next_pinned, next_gpu)
+                    next_ctrl_ready = True
 
                 # ── Replay CUDA graph (adapter + UNet + VAE) ─────────────
                 self._graph.replay()
 
-                # ── Async D2H: copy decoded frame on separate stream ──────
-                # _static_decoded: (1,3,H,W) float16 in [-1,1]
+                # ── Swap in prefetched ctrl for next iteration ────────────
+                if next_ctrl_ready:
+                    torch.cuda.current_stream().wait_stream(self._transfer_stream)
+                    self._static_ctrl.copy_(next_gpu)
+                    # Swap ping-pong buffers
+                    next_pinned, next_gpu = (
+                        (pinned_A, gpu_A) if next_gpu is gpu_B else (pinned_B, gpu_B)
+                    )
+                    next_ctrl_ready = False
+
+                # ── Async D2H ─────────────────────────────────────────────
                 with torch.cuda.stream(copy_stream):
                     frame_gpu = (
                         self._static_decoded[0].permute(1, 2, 0).float() + 1.0
                     ) * 0.5
-                    frame_gpu = frame_gpu.clamp(0, 1)
-                    pinned_out.copy_(frame_gpu, non_blocking=True)
+                    pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
 
-            # Wait for D2H copy to complete
             torch.cuda.current_stream().wait_stream(copy_stream)
             frame = (pinned_out.numpy() * 255).astype(np.uint8)
 
@@ -277,3 +305,6 @@ class DiffusionEngineSDTurboGraph:
                 except queue.Empty:
                     pass
             self.out_queue.put(frame)
+
+            if not self._running:
+                break
