@@ -65,6 +65,12 @@ def parse_args():
         default=None,
         help="Diffusion backend: t2i (~23 FPS) or controlnet (~18 FPS)",
     )
+    p.add_argument(
+        "--size",
+        choices=["256", "384", "512"],
+        default=None,
+        help="Output resolution: 256 (~26 FPS), 384 (~23 FPS), 512 (~15 FPS)",
+    )
     return p.parse_args()
 
 
@@ -106,6 +112,10 @@ def main() -> None:
         cfg.interp_alpha = 1.0
     if args.backend is not None:
         cfg.engine_backend = args.backend
+    if args.size is not None:
+        s = int(args.size)
+        cfg.capture_width = cfg.capture_height = s
+        cfg.output_width = cfg.output_height = s
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
