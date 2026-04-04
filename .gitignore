@@ -6,7 +6,6 @@ __pycache__/
 
 # uv / venv
 .venv/
-uv.lock
 
 # Assets (generated)
 assets/test_input.mp4
