@@ -128,7 +128,8 @@ scripts/
   test_stage1.py            # pose extraction benchmark
   test_stage3.py            # end-to-end pipeline benchmark
   bench_all.py              # full benchmark matrix
-  profile_pipeline.py       # per-stage latency breakdown
+  bench_throughput.py       # pure engine throughput (no I/O)
+  profile_worker.py         # per-op latency breakdown of engine hot path
   quality_check.py          # side-by-side comparison video
   make_test_video.py        # generate synthetic test input
 ```
