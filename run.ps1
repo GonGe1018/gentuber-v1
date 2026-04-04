@@ -1,20 +1,20 @@
-# run.ps1 — One-shot setup and launch for realtime-live2d
+# run.ps1 — Setup and launch for realtime-live2d
 # Usage: .\run.ps1 [args passed to main.py]
-# Example: .\run.ps1 --steps 2 --source 0
+# Examples:
+#   .\run.ps1                              # default (384x384, T2I, 1 step)
+#   .\run.ps1 --source 0                   # webcam
+#   .\run.ps1 --size 256                   # fast mode (~26 FPS)
+#   .\run.ps1 --size 512 --steps 2         # quality mode (~9 FPS)
+#   .\run.ps1 --backend controlnet         # ControlNet backend
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== realtime-live2d setup ===" -ForegroundColor Cyan
+Write-Host "=== realtime-live2d ===" -ForegroundColor Cyan
 
-# 1. Sync managed deps (everything except torch)
-Write-Host "[1/3] Syncing dependencies..." -ForegroundColor Yellow
+# Sync all dependencies (torch cu128 wheels are pinned in pyproject.toml)
+Write-Host "[1/2] Syncing dependencies..." -ForegroundColor Yellow
 uv sync
 
-# 2. Install cu128 torch (bypasses lockfile hash check)
-Write-Host "[2/3] Installing PyTorch cu128 for RTX 5070 Ti..." -ForegroundColor Yellow
-uv pip install "torch==2.7.0+cu128" "torchvision==0.22.0+cu128" `
-    --index-url https://download.pytorch.org/whl/cu128
-
-# 3. Run pipeline
-Write-Host "[3/3] Starting pipeline..." -ForegroundColor Green
-uv run --no-sync python main.py @args
+# Launch pipeline
+Write-Host "[2/2] Starting pipeline..." -ForegroundColor Green
+uv run live2d @args
