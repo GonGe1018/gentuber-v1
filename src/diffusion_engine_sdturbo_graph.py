@@ -226,8 +226,8 @@ class DiffusionEngineSDTurboGraph:
                 gpu_buf.copy_(pinned, non_blocking=True)
             return self._transfer_stream
 
-        def get_control_map():
-            """Drain queue and return freshest control map, blocking if empty."""
+        def get_control_map(last_ctrl):
+            """Return freshest control map. Falls back to last_ctrl if queue empty."""
             ctrl = None
             try:
                 while True:
@@ -238,24 +238,27 @@ class DiffusionEngineSDTurboGraph:
                     ctrl = item
             except queue.Empty:
                 pass
-            if ctrl is None:
-                try:
-                    ctrl = self.in_queue.get(timeout=0.05)
-                    if ctrl is None:
-                        self._running = False
-                        return None
-                except queue.Empty:
-                    pass
-            return ctrl
+            # Reuse last frame if pose thread hasn't produced a new one yet
+            return ctrl if ctrl is not None else last_ctrl
 
-        # Bootstrap: upload first frame
-        first_ctrl = get_control_map()
-        if first_ctrl is None:
+        # Bootstrap: wait for first frame (can't reuse nothing)
+        first_ctrl = None
+        while first_ctrl is None and self._running:
+            try:
+                first_ctrl = self.in_queue.get(timeout=0.1)
+                if first_ctrl is None:
+                    self._running = False
+                    return
+            except queue.Empty:
+                continue
+        if not self._running:
             return
+
         upload_ctrl(first_ctrl, pinned_A, gpu_A)
         torch.cuda.current_stream().wait_stream(self._transfer_stream)
         self._static_ctrl.copy_(gpu_A)
 
+        last_ctrl = first_ctrl
         # Ping-pong state
         next_pinned, next_gpu = pinned_B, gpu_B
         next_ctrl_ready = False
@@ -270,11 +273,12 @@ class DiffusionEngineSDTurboGraph:
                 )
                 self._static_timestep.fill_(int(t))
 
-                # ── Prefetch next control map while graph replays ─────────
-                next_ctrl = get_control_map()
+                # ── Prefetch next control map (reuse last if pose not ready) ─
+                next_ctrl = get_control_map(last_ctrl)
                 if next_ctrl is not None:
                     upload_ctrl(next_ctrl, next_pinned, next_gpu)
                     next_ctrl_ready = True
+                    last_ctrl = next_ctrl
 
                 # ── Replay CUDA graph (adapter + UNet + VAE) ─────────────
                 self._graph.replay()
@@ -283,7 +287,6 @@ class DiffusionEngineSDTurboGraph:
                 if next_ctrl_ready:
                     torch.cuda.current_stream().wait_stream(self._transfer_stream)
                     self._static_ctrl.copy_(next_gpu)
-                    # Swap ping-pong buffers
                     next_pinned, next_gpu = (
                         (pinned_A, gpu_A) if next_gpu is gpu_B else (pinned_B, gpu_B)
                     )
