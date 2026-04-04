@@ -2,11 +2,11 @@
 
 Real-time anime character animation from a webcam or video file using pose-conditioned diffusion.
 
-**RTX 5070 Ti benchmarks (end-to-end pipeline FPS):**
+**RTX 5070 Ti benchmarks (pure engine throughput, no I/O):**
 
 | Backend | 256×256 | 384×384 | 512×512 |
 |---|---|---|---|
-| SD-Turbo + T2I + CUDA graph | **~96 FPS** | **~76 FPS** | **~49 FPS** |
+| SD-Turbo + T2I + CUDA graph | **~124 FPS** | **~73 FPS** | **~49 FPS** |
 | SD-Turbo + T2I (eager) | ~27 FPS | ~25 FPS | — |
 | LCM + T2I-Adapter | — | ~25 FPS | ~15 FPS |
 | LCM + ControlNet | — | ~19 FPS | — |
