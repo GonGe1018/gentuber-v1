@@ -74,13 +74,13 @@ def parse_args():
         "--backend",
         choices=["sdturbo_graph", "sdturbo", "t2i", "controlnet"],
         default=None,
-        help="sdturbo_graph (~46 FPS), sdturbo (~24 FPS), t2i (~23 FPS), controlnet (~18 FPS)",
+        help="sdturbo_graph (~73 FPS), sdturbo (~25 FPS), t2i (~25 FPS), controlnet (~19 FPS)",
     )
     p.add_argument(
         "--size",
         choices=["256", "384", "512"],
         default=None,
-        help="Output resolution: 256 (~26 FPS), 384 (~23 FPS), 512 (~15 FPS)",
+        help="Output resolution: 256 (~124 FPS), 384 (~73 FPS), 512 (~49 FPS)",
     )
     p.add_argument(
         "--no-hands",
