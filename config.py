@@ -11,20 +11,20 @@ class Config:
     # Input: int for webcam index (e.g. 0), str for video file path
     video_source: str = "assets/test_input.mp4"
 
-    # Resolution presets:
-    #   256x256 -> ~26 FPS  (fast, lower quality)
-    #   384x384 -> ~23 FPS  (recommended balance)
-    #   512x512 -> ~15 FPS  (highest quality)
+    # Resolution presets (sdturbo_graph backend, RTX 5070 Ti):
+    #   256x256 -> ~124 FPS  (fast, lower quality)
+    #   384x384 -> ~73 FPS   (recommended balance)
+    #   512x512 -> ~49 FPS   (highest quality)
     capture_width: int = 384
     capture_height: int = 384
     output_width: int = 384
     output_height: int = 384
 
     # Diffusion backend:
-    #   "sdturbo_graph" -- SD-Turbo + T2I-Adapter + CUDA graph (~46 FPS @ 384, recommended)
-    #   "sdturbo"       -- SD-Turbo + T2I-Adapter eager (~24 FPS @ 384)
-    #   "t2i"           -- LCM + T2I-Adapter (~23 FPS @ 384)
-    #   "controlnet"    -- LCM + ControlNet  (~18 FPS @ 384)
+    #   "sdturbo_graph" -- SD-Turbo + T2I-Adapter + CUDA graph (~73 FPS @ 384, recommended)
+    #   "sdturbo"       -- SD-Turbo + T2I-Adapter eager (~25 FPS @ 384)
+    #   "t2i"           -- LCM + T2I-Adapter (~25 FPS @ 384)
+    #   "controlnet"    -- LCM + ControlNet  (~19 FPS @ 384)
     engine_backend: str = "sdturbo_graph"
 
     # Model IDs
@@ -33,10 +33,10 @@ class Config:
     t2i_adapter_model_id: str = "TencentARC/t2iadapter_openpose_sd14v1"
     taesd_model_id: str = "madebyollin/taesd"
 
-    # LCM inference steps
-    #   1 step  -> ~15 FPS end-to-end on RTX 5070 Ti  (lower quality)
-    #   2 steps -> ~9  FPS                             (better quality)
-    #   4 steps -> ~5  FPS                             (best quality)
+    # LCM inference steps (only applies to t2i / controlnet backends)
+    #   1 step  -> ~25 FPS  (lower quality)
+    #   2 steps -> ~15 FPS  (better quality)
+    #   4 steps -> ~8  FPS  (best quality)
     num_inference_steps: int = 1
     guidance_scale: float = 1.0  # LCM works best at 1.0 (CFG-free)
 
@@ -54,6 +54,8 @@ class Config:
     # Pose extraction
     # detect_hands=False saves ~6ms/frame (hand model skipped)
     detect_hands: bool = True
+
+    # Temporal smoothing: blend ratio between prev and current frame
     #   0.0 = no smoothing (raw output)
     #   0.3 = recommended (reduces flicker without adding lag)
     #   1.0 = always show latest frame
