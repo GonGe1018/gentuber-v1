@@ -11,11 +11,13 @@ class Config:
     # Input: int for webcam index (e.g. 0), str for video file path
     video_source: str = "assets/test_input.mp4"
 
-    # Resolution (512x512 is the sweet spot for SD1.5-based models)
-    capture_width: int = 512
-    capture_height: int = 512
-    output_width: int = 512
-    output_height: int = 512
+    # Resolution
+    # 384x384 -> ~18-20 FPS on RTX 5070 Ti (recommended)
+    # 512x512 -> ~15 FPS (higher quality)
+    capture_width: int = 384
+    capture_height: int = 384
+    output_width: int = 384
+    output_height: int = 384
 
     # Diffusion model IDs (all cached in ~/.cache/huggingface on first run)
     base_model_id: str = "SimianLuo/LCM_Dreamshaper_v7"

@@ -25,6 +25,10 @@ from src.pose_extractor import PoseExtractor
 N_FRAMES = 150
 OUTPUT = Path("assets/stage3_output.mp4")
 
+# Resolution override for this test (matches config default)
+TEST_WIDTH = 384
+TEST_HEIGHT = 384
+
 
 def pose_worker(capture, extractor, pose_queue, stop_event):
     while not stop_event.is_set():
@@ -42,6 +46,12 @@ def pose_worker(capture, extractor, pose_queue, stop_event):
 
 def main():
     print(f"[Stage3] Running {N_FRAMES}-frame headless pipeline test ...")
+
+    # Override resolution
+    cfg.capture_width = TEST_WIDTH
+    cfg.capture_height = TEST_HEIGHT
+    cfg.output_width = TEST_WIDTH
+    cfg.output_height = TEST_HEIGHT
 
     pose_queue = queue.Queue(maxsize=cfg.pose_queue_size)
     out_queue = queue.Queue(maxsize=cfg.output_queue_size)
