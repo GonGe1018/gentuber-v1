@@ -109,7 +109,7 @@ class DiffusionEngineSDTurboGraph:
         print("[GraphEngine] Ready.")
 
     def _build_graph(self) -> None:
-        """Capture UNet + adapter forward as a CUDA graph."""
+        """Capture adapter + UNet + VAE decode as a single CUDA graph."""
         cfg = self.cfg
         device = self._device
         dtype = self._dtype
@@ -133,17 +133,20 @@ class DiffusionEngineSDTurboGraph:
         with torch.inference_mode():
             for _ in range(12):
                 adapter_state = adapter(self._static_ctrl)
-                pipe.unet(
+                noise_pred = pipe.unet(
                     self._static_latents,
                     self._static_timestep,
                     self._prompt_embeds,
                     down_intrablock_additional_residuals=adapter_state,
                     return_dict=False,
-                )
+                )[0]
+                # SD-Turbo 1-step: denoised = noise_pred (model predicts x0)
+                denoised = noise_pred / pipe.vae.config.scaling_factor
+                pipe.vae.decode(denoised, return_dict=False)
         torch.cuda.synchronize()
 
-        # Capture
-        print("[GraphEngine] Capturing CUDA graph ...")
+        # Capture: adapter + UNet + scheduler (trivial) + VAE decode
+        print("[GraphEngine] Capturing CUDA graph (UNet + VAE) ...")
         self._graph = torch.cuda.CUDAGraph()
         with torch.inference_mode():
             with torch.cuda.graph(self._graph):
@@ -155,8 +158,11 @@ class DiffusionEngineSDTurboGraph:
                     down_intrablock_additional_residuals=self._adapter_state,
                     return_dict=False,
                 )[0]
+                # SD-Turbo 1-step: denoised = noise_pred (x0 prediction)
+                _denoised = self._static_unet_out / pipe.vae.config.scaling_factor
+                self._static_decoded = pipe.vae.decode(_denoised, return_dict=False)[0]
         torch.cuda.synchronize()
-        print(f"[GraphEngine] Graph captured ({lH}x{lW} latents)")
+        print(f"[GraphEngine] Graph captured (UNet + VAE, {lH}x{lW} latents)")
 
     def start(self) -> "DiffusionEngineSDTurboGraph":
         self._running = True
@@ -240,19 +246,12 @@ class DiffusionEngineSDTurboGraph:
                 self._static_ctrl.copy_(ctrl_gpu)
                 self._static_timestep.fill_(int(t))
 
-                # ── Replay CUDA graph ─────────────────────────────────────
+                # ── Replay CUDA graph (adapter + UNet + VAE) ─────────────
                 self._graph.replay()
-                noise_pred = self._static_unet_out.clone()
 
-                # ── Scheduler step ────────────────────────────────────────
-                result = pipe.scheduler.step(noise_pred, t, latents, return_dict=False)
-                denoised = result[0]
-
-                # ── VAE decode ────────────────────────────────────────────
-                denoised = denoised / pipe.vae.config.scaling_factor
-                decoded = pipe.vae.decode(denoised, return_dict=False)[0]
-                # decoded: (1,3,H,W) float16 in [-1,1]
-                frame_t = (decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
+                # ── D2H copy of decoded frame ─────────────────────────────
+                # _static_decoded: (1,3,H,W) float16 in [-1,1]
+                frame_t = (self._static_decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
                 frame = (frame_t.clamp(0, 1).cpu().numpy() * 255).astype(np.uint8)
 
             if self.out_queue.full():
