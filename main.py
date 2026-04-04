@@ -20,10 +20,19 @@ Usage
 """
 
 import argparse
+import os
 import queue
 import sys
 import threading
+import warnings
 from pathlib import Path
+
+# Suppress noisy third-party warnings before any imports
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*local_dir_use_symlinks.*")
+warnings.filterwarnings("ignore", message=".*safety_checker.*")
+warnings.filterwarnings("ignore", message=".*decode_latents.*")
 
 import cv2
 import numpy as np
