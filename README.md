@@ -134,14 +134,28 @@ scripts/
 
 ## Optimisations applied
 
-- **T2I-Adapter** instead of ControlNet (77M vs 361M params, ~25% faster)
-- **SD-Turbo** single-step adversarial model (no scheduler overhead)
-- **TAESD** tiny VAE decoder (~10x faster than full VAE)
-- **Pre-computed text embeddings** (CLIP runs once at startup)
-- **channels_last** memory layout (better tensor core utilisation)
-- **PyTorch SDPA** (Flash Attention via `AttnProcessor2_0`)
-- **TF32** on Blackwell/Ampere (~10% free speedup)
-- **cuDNN benchmark** + warmup (tuned conv algorithms)
-- **MediaPipe VIDEO mode** (temporal tracking, 54 FPS vs 40 FPS)
-- **Pinned memory + async H2D transfer** (overlapped CPU→GPU copy)
-- **Double-buffered GPU→CPU copy** (async D2H while next inference runs)
+| Optimisation | Gain | Notes |
+|---|---|---|
+| CUDA graph (adapter+UNet+VAE) | **~2x** | Eliminates Python kernel-launch overhead |
+| Noise ring (pre-generated) | ~1ms | Avoids `torch.randn` on hot path |
+| Pose frame reuse | ~30% | Engine never waits for pose thread |
+| Async D2H copy | ~0.5ms | Pinned memory + separate CUDA stream |
+| T2I-Adapter vs ControlNet | ~25% | 77M vs 361M params |
+| SD-Turbo vs LCM | ~5% | No scheduler overhead, CFG-free |
+| TAESD vs full VAE | ~10x VAE | 5MB vs 335MB decoder |
+| Pre-computed text embeddings | ~2ms | CLIP runs once at startup |
+| `channels_last` memory layout | ~5% | Better tensor core utilisation |
+| PyTorch SDPA (AttnProcessor2_0) | ~10% | Flash Attention via cuDNN |
+| TF32 on Blackwell | ~5% | Free via `allow_tf32=True` |
+| cuDNN benchmark + warmup | ~3% | Tuned conv algorithms |
+| MediaPipe VIDEO mode | ~25% pose | Temporal tracking vs per-frame detect |
+| pose_landmarker_lite | ~12% pose | 3MB vs 8MB model |
+| ctrl preprocessing in pose thread | 0ms hot path | 3ms numpy work offloaded |
+| `cv2.addWeighted` interpolation | ~0.5ms | SIMD uint8 vs float32 cast |
+
+**What didn't work on Windows:**
+- `torch.compile` — requires Triton (Linux only)
+- INT8 (bitsandbytes) — falls back to dequantize+fp16, 2x slower
+- FP8 (`torch._scaled_mm`) — per-call cast overhead > GEMM gain without calibrated scales
+
+**Hard floor:** UNet+adapter CUDA graph replay = **15.6ms @ 384×384** (64 FPS theoretical max).
