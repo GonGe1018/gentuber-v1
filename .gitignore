@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.ruff_cache/
+
+# uv / venv
+.venv/
+uv.lock
+
+# Assets (generated)
+assets/test_input.mp4
+assets/stage*.mp4
+assets/stage*.png
+assets/models/
+
+# IDE
+.vscode/
+.idea/
