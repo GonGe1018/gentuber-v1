@@ -58,7 +58,13 @@ def run_bench(backend: str, size: int, steps: int) -> float:
     )
     extractor = PoseExtractor(width=size, height=size, detect_hands=False)
 
-    if backend == "sdturbo":
+    if backend == "sdturbo_graph":
+        from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
+
+        engine = DiffusionEngineSDTurboGraph(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    elif backend == "sdturbo":
         from src.diffusion_engine_sdturbo import DiffusionEngineSDTurbo
 
         engine = DiffusionEngineSDTurbo(
@@ -123,12 +129,12 @@ def main():
     print("-" * 38)
 
     configs = [
+        ("sdturbo_graph", 256, 1),
+        ("sdturbo_graph", 384, 1),
+        ("sdturbo_graph", 512, 1),
         ("sdturbo", 256, 1),
         ("sdturbo", 384, 1),
-        ("sdturbo", 512, 1),
-        ("t2i", 256, 1),
         ("t2i", 384, 1),
-        ("t2i", 512, 1),
         ("t2i", 384, 2),
         ("controlnet", 384, 1),
         ("controlnet", 384, 2),
