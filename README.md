@@ -6,7 +6,7 @@ Real-time anime character animation from a webcam or video file using pose-condi
 
 | Backend | 256×256 | 384×384 | 512×512 |
 |---|---|---|---|
-| SD-Turbo + T2I + CUDA graph | **~80 FPS** | **~48 FPS** | ~30 FPS |
+| SD-Turbo + T2I + CUDA graph | **~84 FPS** | **~48 FPS** | ~30 FPS |
 | SD-Turbo + T2I (eager) | ~27 FPS | ~25 FPS | — |
 | LCM + T2I-Adapter | — | ~25 FPS | ~15 FPS |
 | LCM + ControlNet | — | ~19 FPS | — |
