@@ -35,6 +35,7 @@ from src.capture import VideoCapture
 from src.diffusion_engine import DiffusionEngine
 from src.diffusion_engine_t2i import DiffusionEngineT2I
 from src.diffusion_engine_sdturbo import DiffusionEngineSDTurbo
+from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
@@ -62,9 +63,9 @@ def parse_args():
     )
     p.add_argument(
         "--backend",
-        choices=["sdturbo", "t2i", "controlnet"],
+        choices=["sdturbo_graph", "sdturbo", "t2i", "controlnet"],
         default=None,
-        help="sdturbo (~28 FPS), t2i (~23 FPS), controlnet (~18 FPS)",
+        help="sdturbo_graph (~46 FPS), sdturbo (~24 FPS), t2i (~23 FPS), controlnet (~18 FPS)",
     )
     p.add_argument(
         "--size",
@@ -150,7 +151,11 @@ def main() -> None:
         detect_hands=cfg.detect_hands,
     )
     # Select engine backend from config
-    if cfg.engine_backend == "sdturbo":
+    if cfg.engine_backend == "sdturbo_graph":
+        engine = DiffusionEngineSDTurboGraph(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    elif cfg.engine_backend == "sdturbo":
         engine = DiffusionEngineSDTurbo(
             cfg=cfg, in_queue=pose_queue, out_queue=out_queue
         )

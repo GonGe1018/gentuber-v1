@@ -21,10 +21,11 @@ class Config:
     output_height: int = 384
 
     # Diffusion backend:
-    #   "t2i"       -- LCM + T2I-Adapter  (~23 FPS @ 384)
-    #   "sdturbo"   -- SD-Turbo + T2I-Adapter (~28 FPS @ 384, recommended)
-    #   "controlnet"-- LCM + ControlNet   (~18 FPS @ 384)
-    engine_backend: str = "sdturbo"
+    #   "sdturbo_graph" -- SD-Turbo + T2I-Adapter + CUDA graph (~46 FPS @ 384, recommended)
+    #   "sdturbo"       -- SD-Turbo + T2I-Adapter eager (~24 FPS @ 384)
+    #   "t2i"           -- LCM + T2I-Adapter (~23 FPS @ 384)
+    #   "controlnet"    -- LCM + ControlNet  (~18 FPS @ 384)
+    engine_backend: str = "sdturbo_graph"
 
     # Model IDs
     base_model_id: str = "SimianLuo/LCM_Dreamshaper_v7"
