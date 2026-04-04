@@ -71,6 +71,11 @@ def parse_args():
         default=None,
         help="Output resolution: 256 (~26 FPS), 384 (~23 FPS), 512 (~15 FPS)",
     )
+    p.add_argument(
+        "--no-hands",
+        action="store_true",
+        help="Skip hand landmark detection (saves ~6ms/frame)",
+    )
     return p.parse_args()
 
 
@@ -116,6 +121,8 @@ def main() -> None:
         s = int(args.size)
         cfg.capture_width = cfg.capture_height = s
         cfg.output_width = cfg.output_height = s
+    if args.no_hands:
+        cfg.detect_hands = False
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
