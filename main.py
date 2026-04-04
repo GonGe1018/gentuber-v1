@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import cfg
 from src.capture import VideoCapture
 from src.diffusion_engine import DiffusionEngine
+from src.diffusion_engine_t2i import DiffusionEngineT2I
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
@@ -118,7 +119,11 @@ def main() -> None:
         loop=True,
     )
     extractor = PoseExtractor(width=cfg.capture_width, height=cfg.capture_height)
-    engine = DiffusionEngine(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
+    # Select engine backend from config
+    if cfg.engine_backend == "t2i":
+        engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
+    else:
+        engine = DiffusionEngine(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
     renderer = Renderer(
         title=cfg.window_title,

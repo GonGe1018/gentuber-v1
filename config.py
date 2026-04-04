@@ -19,9 +19,13 @@ class Config:
     output_width: int = 384
     output_height: int = 384
 
-    # Diffusion model IDs (all cached in ~/.cache/huggingface on first run)
+    # Diffusion backend: "controlnet" (~18 FPS) or "t2i" (~23 FPS, recommended)
+    engine_backend: str = "t2i"
+
+    # Model IDs
     base_model_id: str = "SimianLuo/LCM_Dreamshaper_v7"
     controlnet_model_id: str = "lllyasviel/control_v11p_sd15_openpose"
+    t2i_adapter_model_id: str = "TencentARC/t2iadapter_openpose_sd14v1"
     taesd_model_id: str = "madebyollin/taesd"
 
     # LCM inference steps
