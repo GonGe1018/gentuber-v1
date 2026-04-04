@@ -63,7 +63,7 @@ def main():
         queue_size=2,
         loop=True,
     )
-    extractor = PoseExtractor(width=TEST_WIDTH, height=TEST_HEIGHT, detect_hands=True)
+    extractor = PoseExtractor(width=TEST_WIDTH, height=TEST_HEIGHT, detect_hands=False)
     engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
 
