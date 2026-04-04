@@ -78,6 +78,16 @@ def parse_args():
         action="store_true",
         help="Skip hand landmark detection (saves ~6ms/frame)",
     )
+    p.add_argument(
+        "--quality",
+        choices=["fast", "balanced", "quality"],
+        default=None,
+        help=(
+            "fast: 256px, no-hands (~80 FPS)  "
+            "balanced: 384px (~47 FPS, default)  "
+            "quality: 512px (~30 FPS)"
+        ),
+    )
     return p.parse_args()
 
 
@@ -125,6 +135,17 @@ def main() -> None:
         cfg.output_width = cfg.output_height = s
     if args.no_hands:
         cfg.detect_hands = False
+    if args.quality is not None:
+        presets = {
+            "fast": {"size": 256, "detect_hands": False},
+            "balanced": {"size": 384, "detect_hands": True},
+            "quality": {"size": 512, "detect_hands": True},
+        }
+        p = presets[args.quality]
+        s = p["size"]
+        cfg.capture_width = cfg.capture_height = s
+        cfg.output_width = cfg.output_height = s
+        cfg.detect_hands = p["detect_hands"]
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
