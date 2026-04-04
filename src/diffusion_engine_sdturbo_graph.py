@@ -7,7 +7,7 @@ Python overhead, giving ~27% speedup over eager mode.
 Architecture:
   - Static input tensors updated in-place before each graph replay
   - Manual inference loop (bypasses diffusers pipeline.__call__)
-  - T2I-Adapter conditioning injected before UNet via down_block_additional_residuals
+  - T2I-Adapter conditioning injected before UNet via down_intrablock_additional_residuals
 """
 
 import queue
@@ -137,7 +137,7 @@ class DiffusionEngineSDTurboGraph:
                     self._static_latents,
                     self._static_timestep,
                     self._prompt_embeds,
-                    down_block_additional_residuals=adapter_state,
+                    down_intrablock_additional_residuals=adapter_state,
                     return_dict=False,
                 )
         torch.cuda.synchronize()
@@ -152,7 +152,7 @@ class DiffusionEngineSDTurboGraph:
                     self._static_latents,
                     self._static_timestep,
                     self._prompt_embeds,
-                    down_block_additional_residuals=self._adapter_state,
+                    down_intrablock_additional_residuals=self._adapter_state,
                     return_dict=False,
                 )[0]
         torch.cuda.synchronize()
