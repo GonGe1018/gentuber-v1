@@ -219,9 +219,22 @@ class DiffusionEngineSDTurboGraph:
         sigma = float(pipe.scheduler.sigmas[0])
 
         def upload_ctrl(ctrl_map, pinned, gpu_buf):
-            """Upload control map to GPU on transfer_stream. Returns event."""
-            np_ctrl = ctrl_map.transpose(2, 0, 1).astype(np.float16) / 255.0
-            pinned[0].copy_(torch.from_numpy(np_ctrl), non_blocking=False)
+            """Upload control map to GPU on transfer_stream.
+            Accepts either:
+              - uint8 HWC (H,W,3) — raw from pose thread (legacy)
+              - float16 CHW (3,H,W) — pre-processed by pose thread (fast path)
+            """
+            if (
+                ctrl_map.dtype == np.float16
+                and ctrl_map.ndim == 3
+                and ctrl_map.shape[0] == 3
+            ):
+                # Already preprocessed: CHW float16 in [0,1]
+                pinned[0].copy_(torch.from_numpy(ctrl_map), non_blocking=False)
+            else:
+                # Legacy: HWC uint8 — preprocess here
+                np_ctrl = ctrl_map.transpose(2, 0, 1).astype(np.float16) / 255.0
+                pinned[0].copy_(torch.from_numpy(np_ctrl), non_blocking=False)
             with torch.cuda.stream(self._transfer_stream):
                 gpu_buf.copy_(pinned, non_blocking=True)
             return self._transfer_stream

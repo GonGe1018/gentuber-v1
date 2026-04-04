@@ -36,12 +36,13 @@ def pose_worker(capture, extractor, pose_queue, stop_event):
         if frame_bgr is None:
             continue
         control_map, _ = extractor.process(frame_bgr)
+        ctrl = extractor.preprocess(control_map)
         if pose_queue.full():
             try:
                 pose_queue.get_nowait()
             except queue.Empty:
                 pass
-        pose_queue.put(control_map)
+        pose_queue.put(ctrl)
 
 
 def main():

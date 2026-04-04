@@ -111,12 +111,15 @@ def pose_worker(
         if frame_bgr is None:
             continue
         control_map, _ = extractor.process(frame_bgr)
+        # Pre-process here (pose thread has spare capacity) to keep
+        # the diffusion engine hot path free of numpy overhead
+        ctrl_preprocessed = extractor.preprocess(control_map)
         if pose_queue.full():
             try:
                 pose_queue.get_nowait()
             except queue.Empty:
                 pass
-        pose_queue.put(control_map)
+        pose_queue.put(ctrl_preprocessed)
 
 
 def main() -> None:

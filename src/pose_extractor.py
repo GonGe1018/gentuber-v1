@@ -231,6 +231,19 @@ class PoseExtractor:
 
         return canvas, kp
 
+    def preprocess(self, canvas: np.ndarray) -> np.ndarray:
+        """
+        Pre-process a control map for the graph engine hot path.
+
+        Converts HWC uint8 RGB -> CHW float16 [0,1] in the pose thread,
+        eliminating this 3ms CPU op from the diffusion engine worker.
+
+        Returns
+        -------
+        np.ndarray  shape (3, H, W)  dtype float16
+        """
+        return canvas.transpose(2, 0, 1).astype(np.float16) / 255.0
+
     def close(self) -> None:
         self._pose.close()
         if self._hands is not None:
