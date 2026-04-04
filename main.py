@@ -59,6 +59,12 @@ def parse_args():
     p.add_argument(
         "--no-interp", action="store_true", help="Disable temporal frame interpolation"
     )
+    p.add_argument(
+        "--backend",
+        choices=["t2i", "controlnet"],
+        default=None,
+        help="Diffusion backend: t2i (~23 FPS) or controlnet (~18 FPS)",
+    )
     return p.parse_args()
 
 
@@ -98,6 +104,8 @@ def main() -> None:
         cfg.show_skeleton_overlay = False
     if args.no_interp:
         cfg.interp_alpha = 1.0
+    if args.backend is not None:
+        cfg.engine_backend = args.backend
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
