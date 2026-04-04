@@ -54,7 +54,7 @@ def main():
     cfg.output_height = TEST_HEIGHT
 
     pose_queue = queue.Queue(maxsize=cfg.pose_queue_size)
-    out_queue = queue.Queue(maxsize=cfg.output_queue_size)
+    out_queue = queue.Queue(maxsize=256)  # large enough to not bottleneck the engine
 
     capture = VideoCapture(
         cfg.video_source,
