@@ -58,7 +58,13 @@ def run_bench(backend: str, size: int, steps: int) -> float:
     )
     extractor = PoseExtractor(width=size, height=size, detect_hands=False)
 
-    if backend == "t2i":
+    if backend == "sdturbo":
+        from src.diffusion_engine_sdturbo import DiffusionEngineSDTurbo
+
+        engine = DiffusionEngineSDTurbo(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    elif backend == "t2i":
         from src.diffusion_engine_t2i import DiffusionEngineT2I
 
         engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
@@ -117,6 +123,9 @@ def main():
     print("-" * 38)
 
     configs = [
+        ("sdturbo", 256, 1),
+        ("sdturbo", 384, 1),
+        ("sdturbo", 512, 1),
         ("t2i", 256, 1),
         ("t2i", 384, 1),
         ("t2i", 512, 1),

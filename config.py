@@ -20,8 +20,11 @@ class Config:
     output_width: int = 384
     output_height: int = 384
 
-    # Diffusion backend: "controlnet" (~18 FPS) or "t2i" (~23 FPS, recommended)
-    engine_backend: str = "t2i"
+    # Diffusion backend:
+    #   "t2i"       -- LCM + T2I-Adapter  (~23 FPS @ 384)
+    #   "sdturbo"   -- SD-Turbo + T2I-Adapter (~28 FPS @ 384, recommended)
+    #   "controlnet"-- LCM + ControlNet   (~18 FPS @ 384)
+    engine_backend: str = "sdturbo"
 
     # Model IDs
     base_model_id: str = "SimianLuo/LCM_Dreamshaper_v7"

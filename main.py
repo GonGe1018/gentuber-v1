@@ -34,6 +34,7 @@ from config import cfg
 from src.capture import VideoCapture
 from src.diffusion_engine import DiffusionEngine
 from src.diffusion_engine_t2i import DiffusionEngineT2I
+from src.diffusion_engine_sdturbo import DiffusionEngineSDTurbo
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
@@ -61,9 +62,9 @@ def parse_args():
     )
     p.add_argument(
         "--backend",
-        choices=["t2i", "controlnet"],
+        choices=["sdturbo", "t2i", "controlnet"],
         default=None,
-        help="Diffusion backend: t2i (~23 FPS) or controlnet (~18 FPS)",
+        help="sdturbo (~28 FPS), t2i (~23 FPS), controlnet (~18 FPS)",
     )
     p.add_argument(
         "--size",
@@ -149,7 +150,11 @@ def main() -> None:
         detect_hands=cfg.detect_hands,
     )
     # Select engine backend from config
-    if cfg.engine_backend == "t2i":
+    if cfg.engine_backend == "sdturbo":
+        engine = DiffusionEngineSDTurbo(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    elif cfg.engine_backend == "t2i":
         engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     else:
         engine = DiffusionEngine(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
