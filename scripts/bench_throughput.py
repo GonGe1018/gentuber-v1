@@ -5,8 +5,11 @@ Measures how fast the engine produces frames without any writer bottleneck.
 
 Usage:
     uv run python scripts/bench_throughput.py
+    uv run python scripts/bench_throughput.py --engine lcm_graph
+    uv run python scripts/bench_throughput.py --engine sdturbo_graph
 """
 
+import argparse
 import queue
 import sys
 import threading
@@ -17,7 +20,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import cfg
 from src.capture import VideoCapture
-from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
 from src.pose_extractor import PoseExtractor
 
 N_WARMUP = 30
@@ -40,20 +42,30 @@ def pose_worker(capture, extractor, pose_queue, stop_event):
         pose_queue.put(ctrl)
 
 
-def bench_size(size: int) -> float:
+def bench_size(size: int, engine_name: str) -> float:
     cfg.capture_width = cfg.capture_height = size
     cfg.output_width = cfg.output_height = size
 
     pose_queue = queue.Queue(maxsize=2)
-    out_queue = queue.Queue(maxsize=512)  # large — never blocks engine
+    out_queue = queue.Queue(maxsize=512)
 
     capture = VideoCapture(
         cfg.video_source, width=size, height=size, queue_size=2, loop=True
     )
     extractor = PoseExtractor(width=size, height=size, detect_hands=False)
-    engine = DiffusionEngineSDTurboGraph(
-        cfg=cfg, in_queue=pose_queue, out_queue=out_queue
-    )
+
+    if engine_name == "lcm_graph":
+        from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph
+
+        engine = DiffusionEngineLCMGraph(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    else:
+        from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
+
+        engine = DiffusionEngineSDTurboGraph(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
 
     engine.load()
 
@@ -100,13 +112,19 @@ def bench_size(size: int) -> float:
 def main():
     import torch
 
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "--engine", choices=["lcm_graph", "sdturbo_graph"], default="lcm_graph"
+    )
+    args = p.parse_args()
+
     print(f"GPU: {torch.cuda.get_device_name(0)}")
-    print(f"Backend: sdturbo_graph, {N_BENCH} frames each\n")
+    print(f"Backend: {args.engine}, {N_BENCH} frames each\n")
     print(f"{'Size':>8}  {'FPS':>8}  {'ms/frame':>10}")
     print("-" * 32)
 
     for size in SIZES:
-        fps = bench_size(size)
+        fps = bench_size(size, args.engine)
         print(f"{size:>8}  {fps:>8.1f}  {1000 / fps:>10.1f}")
 
     print("-" * 32)
