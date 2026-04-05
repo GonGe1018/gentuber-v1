@@ -8,9 +8,9 @@ Real-time anime character animation from a webcam or video file using pose-condi
 |---|---|---|---|---|
 | KohakuV2 + LCM-LoRA + CUDA graph | **~131 FPS** | **~73 FPS** | **~47 FPS** | ★★★★ anime |
 | SD-Turbo + T2I + CUDA graph | **~131 FPS** | **~77 FPS** | **~52 FPS** | ★★★ generic |
-| SD-Turbo + T2I (eager) | ~28 FPS | ~27 FPS | — | ★★★ generic |
+| SD-Turbo + T2I (eager) | ~28 FPS | ~26 FPS | — | ★★★ generic |
 | LCM + T2I-Adapter | — | ~27 FPS | ~15 FPS | ★★★ generic |
-| LCM + ControlNet | — | ~19 FPS | ~11 FPS | ★★★ generic |
+| LCM + ControlNet | — | ~20 FPS | ~11 FPS | ★★★ generic |
 
 ## How it works
 
