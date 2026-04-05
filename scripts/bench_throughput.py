@@ -125,14 +125,23 @@ def main():
     p.add_argument(
         "--engine", choices=["lcm_graph", "sdturbo_graph"], default="lcm_graph"
     )
+    p.add_argument(
+        "--size",
+        type=int,
+        choices=[256, 384, 512],
+        default=None,
+        help="Run a single size instead of all three (avoids VRAM pressure from reloading)",
+    )
     args = p.parse_args()
+
+    sizes = [args.size] if args.size else SIZES
 
     print(f"GPU: {torch.cuda.get_device_name(0)}")
     print(f"Backend: {args.engine}, {N_BENCH} frames each\n")
     print(f"{'Size':>8}  {'FPS':>8}  {'ms/frame':>10}")
     print("-" * 32)
 
-    for size in SIZES:
+    for size in sizes:
         fps = bench_size(size, args.engine)
         print(f"{size:>8}  {fps:>8.1f}  {1000 / fps:>10.1f}")
 
