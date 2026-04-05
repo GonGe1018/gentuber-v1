@@ -70,6 +70,7 @@ Or use the convenience script:
 | `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
 | `--prompt` | see config.py | Generation prompt |
 | `--negative-prompt` | see config.py | Negative prompt |
+| `--seed` | `42` | Noise seed (-1 = random each run) |
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
 | `--no-hands` | off | Skip hand landmark detection |
