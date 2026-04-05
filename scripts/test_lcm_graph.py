@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import cfg
 from src.capture import VideoCapture
 from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph, ANIME_MODEL_ID
-from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 
 N_WARMUP = 30
