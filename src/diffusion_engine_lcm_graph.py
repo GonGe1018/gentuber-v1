@@ -368,6 +368,11 @@ class DiffusionEngineLCMGraph:
                         )
                         last_ctrl = next_ctrl
 
+                    # Reset scheduler state each iteration — scheduler.step()
+                    # modifies _step_index internally, so without this reset
+                    # the second+ iterations start from the wrong step.
+                    pipe.scheduler.set_timesteps(steps, device=device)
+
                     latents = noise * sigma_0
                     adapter_state = self._adapter(self._static_ctrl)
 
