@@ -65,6 +65,7 @@ def parse_args():
         help="LCM inference steps 1-4 (default: config.num_inference_steps)",
     )
     p.add_argument("--prompt", default=None, help="Override generation prompt")
+    p.add_argument("--negative-prompt", default=None, help="Override negative prompt")
     p.add_argument(
         "--model",
         default=None,
@@ -147,6 +148,8 @@ def main() -> None:
         cfg.num_inference_steps = max(1, min(4, args.steps))
     if args.prompt is not None:
         cfg.prompt = args.prompt
+    if args.negative_prompt is not None:
+        cfg.negative_prompt = args.negative_prompt
     if args.no_skeleton:
         cfg.show_skeleton_overlay = False
     if args.no_interp:
