@@ -189,8 +189,10 @@ def main():
     print(f"\nPer-op breakdown ({N_BENCH} iterations each):\n")
 
     bench_op(
-        "ctrl_np = ctrl.transpose(2,0,1).astype(f16)/255",
-        lambda: dummy_ctrl_np.transpose(2, 0, 1).astype(np.float16) / 255.0,
+        "ctrl_np = ctrl.astype(f32)*(1/255).T.astype(f16)",
+        lambda: (dummy_ctrl_np.astype(np.float32) * (1.0 / 255.0))
+        .transpose(2, 0, 1)
+        .astype(np.float16),
     )
 
     np_ctrl = dummy_ctrl_np.transpose(2, 0, 1).astype(np.float16) / 255.0
