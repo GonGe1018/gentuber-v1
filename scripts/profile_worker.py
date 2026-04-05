@@ -30,6 +30,7 @@ from diffusers.models.attention_processor import AttnProcessor2_0
 
 from config import cfg
 from src.diffusion_engine_lcm_graph import ANIME_MODEL_ID
+from src.pose_extractor import PoseExtractor
 
 N_WARMUP = 20
 N_BENCH = 200
@@ -185,17 +186,16 @@ def main():
     xfer_stream = torch.cuda.Stream()
 
     dummy_ctrl_np = np.zeros((H, W, 3), dtype=np.uint8)
+    extractor = PoseExtractor(width=W, height=H, detect_hands=False)
 
     print(f"\nPer-op breakdown ({N_BENCH} iterations each):\n")
 
     bench_op(
-        "ctrl_np = ctrl.astype(f32)*(1/255).T.astype(f16)",
-        lambda: (dummy_ctrl_np.astype(np.float32) * (1.0 / 255.0))
-        .transpose(2, 0, 1)
-        .astype(np.float16),
+        "extractor.preprocess(ctrl_map)",
+        lambda: extractor.preprocess(dummy_ctrl_np),
     )
 
-    np_ctrl = dummy_ctrl_np.transpose(2, 0, 1).astype(np.float16) / 255.0
+    np_ctrl = extractor.preprocess(dummy_ctrl_np)
     bench_op(
         "pinned_ctrl[0].copy_(from_numpy)",
         lambda: pinned_ctrl[0].copy_(torch.from_numpy(np_ctrl), non_blocking=False),
@@ -241,7 +241,7 @@ def main():
     print()
 
     def full_iter():
-        np_c = dummy_ctrl_np.transpose(2, 0, 1).astype(np.float16) / 255.0
+        np_c = extractor.preprocess(dummy_ctrl_np)
         pinned_ctrl[0].copy_(torch.from_numpy(np_c), non_blocking=False)
         with torch.cuda.stream(xfer_stream):
             gpu_ctrl.copy_(pinned_ctrl, non_blocking=True)
