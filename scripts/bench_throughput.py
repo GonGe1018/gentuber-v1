@@ -7,6 +7,7 @@ Usage:
     uv run python scripts/bench_throughput.py
     uv run python scripts/bench_throughput.py --engine lcm_graph
     uv run python scripts/bench_throughput.py --engine sdturbo_graph
+    uv run python scripts/bench_throughput.py --engine lcm_graph --size 384
 """
 
 import argparse
