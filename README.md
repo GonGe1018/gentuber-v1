@@ -36,15 +36,15 @@ uv sync
 
 ```powershell
 # Quality presets (easiest way to tune speed vs quality)
-uv run live2d --quality fast       # 256px, no hands, ~120 FPS
+uv run live2d --quality fast       # 256px, no hands, ~132 FPS
 uv run live2d --quality balanced   # 384px, default, ~73 FPS
-uv run live2d --quality quality    # 512px, ~48 FPS
+uv run live2d --quality quality    # 512px, ~47 FPS
 
 # Manual control
 uv run live2d --source 0                   # webcam
 uv run live2d --backend lcm_graph          # default, KohakuV2 anime, ~73 FPS
-uv run live2d --backend sdturbo_graph      # SD-Turbo, ~73 FPS
-uv run live2d --backend sdturbo            # eager, ~25 FPS
+uv run live2d --backend sdturbo_graph      # SD-Turbo, ~77 FPS
+uv run live2d --backend sdturbo            # eager, ~27 FPS
 uv run live2d --backend t2i
 uv run live2d --backend controlnet
 ```
