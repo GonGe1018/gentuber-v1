@@ -209,6 +209,14 @@ class DiffusionEngineLCMGraph:
             pass
         if self._thread:
             self._thread.join(timeout=5.0)
+        # Explicitly release CUDA graph and static GPU tensors so the
+        # caller can del+empty_cache between benchmark runs without OOM
+        self._graph = None
+        self._static_latents = None
+        self._static_ctrl = None
+        self._static_decoded = None
+        self._pipe = None
+        self._adapter = None
 
     def _worker(self) -> None:
         cfg = self.cfg
