@@ -191,7 +191,10 @@ class DiffusionEngineSDTurboGraph:
         lH, lW = H // 8, W // 8
 
         torch.set_num_threads(2)
-        generator = torch.Generator(device=device).manual_seed(42)
+        seed = getattr(cfg, "seed", 42)
+        generator = torch.Generator(device=device).manual_seed(
+            seed if seed >= 0 else torch.randint(0, 2**31, (1,)).item()
+        )
 
         # Pre-generate a ring of noise tensors to avoid randn on the hot path
         NOISE_RING = 64

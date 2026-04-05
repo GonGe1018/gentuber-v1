@@ -221,7 +221,10 @@ class DiffusionEngineLCMGraph:
         steps = max(1, cfg.num_inference_steps)
 
         torch.set_num_threads(2)
-        generator = torch.Generator(device=device).manual_seed(42)
+        seed = getattr(cfg, "seed", 42)
+        generator = torch.Generator(device=device).manual_seed(
+            seed if seed >= 0 else torch.randint(0, 2**31, (1,)).item()
+        )
 
         NOISE_RING = 64
         noise_ring = [

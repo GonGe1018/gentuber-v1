@@ -67,6 +67,12 @@ def parse_args():
     p.add_argument("--prompt", default=None, help="Override generation prompt")
     p.add_argument("--negative-prompt", default=None, help="Override negative prompt")
     p.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Noise seed for reproducible output (-1 = random)",
+    )
+    p.add_argument(
         "--model",
         default=None,
         help="Anime model for lcm_graph backend (e.g. 'KBlueLeaf/kohaku-v2.1', 'Lykon/dreamshaper-8')",
@@ -150,6 +156,8 @@ def main() -> None:
         cfg.prompt = args.prompt
     if args.negative_prompt is not None:
         cfg.negative_prompt = args.negative_prompt
+    if args.seed is not None:
+        cfg.seed = args.seed
     if args.no_skeleton:
         cfg.show_skeleton_overlay = False
     if args.no_interp:
