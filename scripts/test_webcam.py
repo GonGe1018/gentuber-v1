@@ -21,7 +21,7 @@ import cv2
 
 from config import cfg
 from src.capture import VideoCapture
-from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
+from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
@@ -64,9 +64,7 @@ def main():
     extractor = PoseExtractor(
         width=args.size, height=args.size, detect_hands=cfg.detect_hands
     )
-    engine = DiffusionEngineSDTurboGraph(
-        cfg=cfg, in_queue=pose_queue, out_queue=out_queue
-    )
+    engine = DiffusionEngineLCMGraph(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
     renderer = Renderer(
         title="Realtime Live2D — Webcam",
