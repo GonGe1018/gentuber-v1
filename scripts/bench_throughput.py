@@ -60,6 +60,15 @@ def bench_size(size: int, engine_name: str) -> float:
             ANIME_MODEL_ID,
         )
 
+        model_id = getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID
+        engine = DiffusionEngineLCMGraph(
+            cfg=cfg,
+            in_queue=pose_queue,
+            out_queue=out_queue,
+            model_id=model_id,
+        )
+        print(f"  model: {model_id}")
+
         engine = DiffusionEngineLCMGraph(
             cfg=cfg,
             in_queue=pose_queue,
