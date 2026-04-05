@@ -18,3 +18,7 @@ assets/models/
 # IDE
 .vscode/
 .idea/
+
+# Debug output
+debug_*.png
+
