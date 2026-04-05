@@ -87,13 +87,13 @@ def parse_args():
         "--backend",
         choices=["lcm_graph", "sdturbo_graph", "sdturbo", "t2i", "controlnet"],
         default=None,
-        help="lcm_graph (~73 FPS, best quality), sdturbo_graph (~73 FPS), sdturbo (~25 FPS), t2i (~25 FPS), controlnet (~19 FPS)",
+        help="lcm_graph (~73 FPS, best quality), sdturbo_graph (~77 FPS), sdturbo (~27 FPS), t2i (~27 FPS), controlnet (~20 FPS)",
     )
     p.add_argument(
         "--size",
         choices=["256", "384", "512"],
         default=None,
-        help="Output resolution: 256 (~124 FPS), 384 (~73 FPS), 512 (~49 FPS)",
+        help="Output resolution: 256 (~132 FPS), 384 (~73 FPS), 512 (~47 FPS)",
     )
     p.add_argument(
         "--no-hands",
