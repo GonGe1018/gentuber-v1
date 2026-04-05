@@ -171,12 +171,13 @@ def main():
                 str(size),
                 "--_single",
             ],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=None,  # let stderr go to terminal so errors are visible
             text=True,
         )
         if result.returncode != 0:
             print(
-                f"  [ERROR size={size}] {result.stderr.splitlines()[-1] if result.stderr else 'unknown'}"
+                f"  [ERROR size={size}] subprocess exited with code {result.returncode}"
             )
             continue
         for line in result.stdout.splitlines():
