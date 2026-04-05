@@ -314,10 +314,7 @@ class DiffusionEngineSDTurboGraph:
                     frame_gpu = (
                         self._static_decoded[0].permute(1, 2, 0).float() + 1.0
                     ) * 0.5
-                    # nan_to_num guards against NaN from degenerate inputs
-                    with torch.cuda.stream(copy_stream):
-                        frame_gpu = (_decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
-                        pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
+                    pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
 
             torch.cuda.current_stream().wait_stream(copy_stream)
             frame = cv2.convertScaleAbs(pinned_out.numpy(), alpha=255)
