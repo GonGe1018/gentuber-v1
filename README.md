@@ -62,7 +62,7 @@ Or use the convenience script:
 | Flag | Default | Description |
 |---|---|---|
 | `--source` | `assets/test_input.mp4` | Video file path or webcam index |
-| `--steps` | `1` | LCM inference steps (1–4) |
+| `--steps` | `1` | LCM inference steps (1–4, lcm_graph uses CUDA graph at 1, eager at 2+) |
 | `--size` | `384` | Output resolution: 256 / 384 / 512 |
 | `--model` | — | Anime model for `lcm_graph` (e.g. `Lykon/dreamshaper-8`) |
 | `--quality` | — | `fast` (~120 FPS) / `balanced` (~70 FPS) / `quality` (~44 FPS) |
