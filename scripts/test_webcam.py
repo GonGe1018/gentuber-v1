@@ -27,7 +27,7 @@ from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
 
 
-def pose_worker(capture, extractor, pose_queue, stop_event):
+def pose_worker(capture, extractor, pose_queue, stop_event, skeleton_queue=None):
     while not stop_event.is_set():
         frame_bgr = capture.read(timeout=0.1)
         if frame_bgr is None:
@@ -40,6 +40,13 @@ def pose_worker(capture, extractor, pose_queue, stop_event):
             except queue.Empty:
                 pass
         pose_queue.put(ctrl)
+        if skeleton_queue is not None:
+            if skeleton_queue.full():
+                try:
+                    skeleton_queue.get_nowait()
+                except queue.Empty:
+                    pass
+            skeleton_queue.put(ctrl_map)
 
 
 def main():
@@ -57,6 +64,7 @@ def main():
 
     pose_queue = queue.Queue(maxsize=2)
     out_queue = queue.Queue(maxsize=4)
+    skeleton_queue = queue.Queue(maxsize=2)
 
     capture = VideoCapture(
         cfg.video_source, width=args.size, height=args.size, queue_size=2, loop=False
@@ -83,7 +91,7 @@ def main():
     capture.start()
     pose_thread = threading.Thread(
         target=pose_worker,
-        args=(capture, extractor, pose_queue, stop_event),
+        args=(capture, extractor, pose_queue, stop_event, skeleton_queue),
         daemon=True,
     )
     pose_thread.start()
@@ -111,10 +119,9 @@ def main():
             frame_rgb = interp.blend(frame_rgb)
 
             try:
-                last_skeleton = (
-                    pose_queue.queue[-1] if pose_queue.queue else last_skeleton
-                )
-            except Exception:
+                while True:
+                    last_skeleton = skeleton_queue.get_nowait()
+            except queue.Empty:
                 pass
 
             alive = renderer.show(frame_rgb, skeleton_rgb=last_skeleton)
