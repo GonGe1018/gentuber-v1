@@ -3,6 +3,7 @@ renderer.py — OpenCV display window with FPS overlay and optional skeleton.
 """
 
 import time
+from collections import deque
 
 import cv2
 import numpy as np
@@ -92,14 +93,10 @@ class Renderer:
 
 class _FPSCounter:
     def __init__(self, window: int = 60):
-        self._times: list[float] = []
-        self._window = window
+        self._times: deque = deque(maxlen=window)
 
     def tick(self) -> float:
-        now = time.perf_counter()
-        self._times.append(now)
-        if len(self._times) > self._window:
-            self._times.pop(0)
+        self._times.append(time.perf_counter())
         if len(self._times) < 2:
             return 0.0
         return (len(self._times) - 1) / (self._times[-1] - self._times[0])
