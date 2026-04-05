@@ -32,7 +32,8 @@ def pose_worker(capture, extractor, pose_queue, stop_event):
         frame_bgr = capture.read(timeout=0.1)
         if frame_bgr is None:
             continue
-        ctrl, _ = extractor.process(frame_bgr)
+        ctrl_map, _ = extractor.process(frame_bgr)
+        ctrl = extractor.preprocess(ctrl_map)
         if pose_queue.full():
             try:
                 pose_queue.get_nowait()
