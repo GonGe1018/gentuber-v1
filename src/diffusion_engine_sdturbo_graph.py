@@ -15,7 +15,6 @@ import threading
 from typing import Optional
 
 import cv2
-import numpy as np
 import torch
 from diffusers import (
     AutoencoderTiny,

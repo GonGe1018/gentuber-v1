@@ -108,8 +108,11 @@ def bench_size(size: int, engine_name: str) -> float:
     capture.stop()
     extractor.close()
 
+    import gc
     import torch
 
+    del engine
+    gc.collect()
     torch.cuda.empty_cache()
 
     return collected / elapsed if elapsed > 0 else 0.0
