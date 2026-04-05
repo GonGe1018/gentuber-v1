@@ -64,7 +64,8 @@ Or use the convenience script:
 | `--source` | `assets/test_input.mp4` | Video file path or webcam index |
 | `--steps` | `1` | LCM inference steps (1–4) |
 | `--size` | `384` | Output resolution: 256 / 384 / 512 |
-| `--quality` | — | `fast` (~120 FPS) / `balanced` (~73 FPS) / `quality` (~48 FPS) |
+| `--model` | — | Anime model for `lcm_graph` (e.g. `Lykon/dreamshaper-8`) |
+| `--quality` | — | `fast` (~120 FPS) / `balanced` (~70 FPS) / `quality` (~44 FPS) |
 | `--backend` | `lcm_graph` | `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
 | `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
 | `--prompt` | see config.py | Generation prompt |
