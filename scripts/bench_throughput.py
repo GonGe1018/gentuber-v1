@@ -121,6 +121,7 @@ def bench_size(size: int, engine_name: str) -> float:
 
 
 def main():
+    import subprocess
     import torch
 
     p = argparse.ArgumentParser()
@@ -132,20 +133,53 @@ def main():
         type=int,
         choices=[256, 384, 512],
         default=None,
-        help="Run a single size instead of all three (avoids VRAM pressure from reloading)",
+        help="Run a single size (used internally by subprocess mode)",
     )
+    p.add_argument("--_single", action="store_true", help=argparse.SUPPRESS)
     args = p.parse_args()
 
-    sizes = [args.size] if args.size else SIZES
+    # Single-size mode: actually run the benchmark
+    if args._single or args.size is not None:
+        sizes = [args.size] if args.size else SIZES
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
+        print(f"Backend: {args.engine}, {N_BENCH} frames each\n")
+        print(f"{'Size':>8}  {'FPS':>8}  {'ms/frame':>10}")
+        print("-" * 32)
+        for size in sizes:
+            fps = bench_size(size, args.engine)
+            print(f"{size:>8}  {fps:>8.1f}  {1000 / fps:>10.1f}")
+        print("-" * 32)
+        print("Done.")
+        return
+
+    # Multi-size mode: spawn a fresh subprocess per size to avoid CUDA graph OOM
+    import sys
 
     print(f"GPU: {torch.cuda.get_device_name(0)}")
     print(f"Backend: {args.engine}, {N_BENCH} frames each\n")
     print(f"{'Size':>8}  {'FPS':>8}  {'ms/frame':>10}")
     print("-" * 32)
 
-    for size in sizes:
-        fps = bench_size(size, args.engine)
-        print(f"{size:>8}  {fps:>8.1f}  {1000 / fps:>10.1f}")
+    for size in SIZES:
+        result = subprocess.run(
+            [
+                sys.executable,
+                __file__,
+                "--engine",
+                args.engine,
+                "--size",
+                str(size),
+                "--_single",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("model:"):
+                print(f"  {stripped}")
+            elif stripped and stripped[0].isdigit():
+                print(f"{stripped:>32}")
 
     print("-" * 32)
     print("Done.")
