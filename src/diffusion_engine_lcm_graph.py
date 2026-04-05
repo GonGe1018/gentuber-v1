@@ -299,8 +299,9 @@ class DiffusionEngineLCMGraph:
 
                 if steps == 1:
                     # ── Fast path: CUDA graph ─────────────────────────────
+                    # sigma_0 == 1.0 for LCM, so latents = noise (no multiply)
                     self._static_latents.copy_(
-                        (noise * sigma_0).to(memory_format=torch.channels_last)
+                        noise.to(memory_format=torch.channels_last)
                     )
                     # _static_timestep is constant — no fill needed
 
