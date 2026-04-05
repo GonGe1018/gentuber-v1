@@ -181,6 +181,11 @@ scripts/
 | pose_landmarker_lite | ~12% pose | 3MB vs 8MB model |
 | ctrl preprocessing in pose thread | 0ms hot path | 3ms numpy work offloaded |
 | `cv2.addWeighted` interpolation | ~0.5ms | SIMD uint8 vs float32 cast |
+| `cv2.convertScaleAbs` D2H cast | ~0.4ms | 15x faster than `(arr*255).astype(u8)` |
+| CPU timestep (avoid device sync) | ~15ms | `int(t.cpu())` vs `int(t)` on CUDA tensor |
+| Skip noise×sigma (LCM σ=1.0) | ~0.01ms | Identity multiply removed |
+| Remove redundant `fill_()` | ~0.01ms | Constant timestep set once at capture |
+| KohakuV2 + LCM-LoRA | quality | Anime-specific SD1.5, same throughput |
 
 **What didn't work on Windows:**
 - `torch.compile` — requires Triton (Linux only)
