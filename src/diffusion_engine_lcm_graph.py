@@ -302,7 +302,7 @@ class DiffusionEngineLCMGraph:
                     self._static_latents.copy_(
                         (noise * sigma_0).to(memory_format=torch.channels_last)
                     )
-                    self._static_timestep.fill_(int(timesteps[0]))
+                    # _static_timestep is constant — no fill needed
 
                     next_ctrl = get_control_map(last_ctrl)
                     if next_ctrl is not None:

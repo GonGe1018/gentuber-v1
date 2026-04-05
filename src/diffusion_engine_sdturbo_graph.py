@@ -284,7 +284,7 @@ class DiffusionEngineSDTurboGraph:
                 self._static_latents.copy_(
                     (noise * sigma).to(memory_format=torch.channels_last)
                 )
-                self._static_timestep.fill_(int(t))
+                # _static_timestep is constant (999) — no fill needed
 
                 # ── Prefetch next control map (reuse last if pose not ready) ─
                 next_ctrl = get_control_map(last_ctrl)
