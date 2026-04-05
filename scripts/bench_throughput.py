@@ -33,7 +33,8 @@ def pose_worker(capture, extractor, pose_queue, stop_event):
         frame_bgr = capture.read(timeout=0.1)
         if frame_bgr is None:
             continue
-        ctrl, _ = extractor.process(frame_bgr)
+        ctrl_map, _ = extractor.process(frame_bgr)
+        ctrl = extractor.preprocess(ctrl_map)
         if pose_queue.full():
             try:
                 pose_queue.get_nowait()
@@ -62,19 +63,9 @@ def bench_size(size: int, engine_name: str) -> float:
 
         model_id = getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID
         engine = DiffusionEngineLCMGraph(
-            cfg=cfg,
-            in_queue=pose_queue,
-            out_queue=out_queue,
-            model_id=model_id,
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue, model_id=model_id
         )
         print(f"  model: {model_id}")
-
-        engine = DiffusionEngineLCMGraph(
-            cfg=cfg,
-            in_queue=pose_queue,
-            out_queue=out_queue,
-            model_id=getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID,
-        )
     else:
         from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
 
