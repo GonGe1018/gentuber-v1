@@ -387,6 +387,7 @@ class DiffusionEngineLCMGraph:
                         latents / pipe.vae.config.scaling_factor, return_dict=False
                     )[0]
 
+                    copy_stream.wait_stream(torch.cuda.current_stream())
                     with torch.cuda.stream(copy_stream):
                         frame_gpu = (decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
                         pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
