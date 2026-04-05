@@ -55,10 +55,16 @@ def bench_size(size: int, engine_name: str) -> float:
     extractor = PoseExtractor(width=size, height=size, detect_hands=False)
 
     if engine_name == "lcm_graph":
-        from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph
+        from src.diffusion_engine_lcm_graph import (
+            DiffusionEngineLCMGraph,
+            ANIME_MODEL_ID,
+        )
 
         engine = DiffusionEngineLCMGraph(
-            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+            cfg=cfg,
+            in_queue=pose_queue,
+            out_queue=out_queue,
+            model_id=getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID,
         )
     else:
         from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
