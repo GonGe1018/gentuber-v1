@@ -6,8 +6,8 @@ Real-time anime character animation from a webcam or video file using pose-condi
 
 | Backend | 256×256 | 384×384 | 512×512 | Quality |
 |---|---|---|---|---|
-| KohakuV2 + LCM-LoRA + CUDA graph | **~131 FPS** | **~73 FPS** | **~47 FPS** | ★★★★ anime |
-| SD-Turbo + T2I + CUDA graph | **~131 FPS** | **~77 FPS** | **~52 FPS** | ★★★ generic |
+| KohakuV2 + LCM-LoRA + CUDA graph | **~103 FPS** | **~60 FPS** | **~37 FPS** | ★★★★ anime |
+| SD-Turbo + T2I + CUDA graph | **~104 FPS** | **~63 FPS** | **~40 FPS** | ★★★ generic |
 | SD-Turbo + T2I (eager) | ~28 FPS | ~26 FPS | — | ★★★ generic |
 | LCM + T2I-Adapter | — | ~27 FPS | ~15 FPS | ★★★ generic |
 | LCM + ControlNet | — | ~20 FPS | ~11 FPS | ★★★ generic |
@@ -36,14 +36,14 @@ uv sync
 
 ```powershell
 # Quality presets (easiest way to tune speed vs quality)
-uv run live2d --quality fast       # 256px, no hands, ~132 FPS
-uv run live2d --quality balanced   # 384px, default, ~73 FPS
-uv run live2d --quality quality    # 512px, ~47 FPS
+uv run live2d --quality fast       # 256px, no hands, ~103 FPS
+uv run live2d --quality balanced   # 384px, default, ~60 FPS
+uv run live2d --quality quality    # 512px, ~37 FPS
 
 # Manual control
 uv run live2d --source 0                   # webcam
-uv run live2d --backend lcm_graph          # default, KohakuV2 anime, ~73 FPS
-uv run live2d --backend sdturbo_graph      # SD-Turbo, ~77 FPS
+uv run live2d --backend lcm_graph          # default, KohakuV2 anime, ~60 FPS
+uv run live2d --backend sdturbo_graph      # SD-Turbo, ~63 FPS
 uv run live2d --backend sdturbo            # eager, ~27 FPS
 uv run live2d --backend t2i
 uv run live2d --backend controlnet
@@ -65,7 +65,7 @@ Or use the convenience script:
 | `--steps` | `1` | LCM inference steps (1–4, lcm_graph uses CUDA graph at 1, eager at 2+) |
 | `--size` | `384` | Output resolution: 256 / 384 / 512 |
 | `--model` | — | Anime model for `lcm_graph` (e.g. `Lykon/dreamshaper-8`) |
-| `--quality` | — | `fast` (~132 FPS) / `balanced` (~73 FPS) / `quality` (~48 FPS) |
+| `--quality` | — | `fast` (~103 FPS) / `balanced` (~60 FPS) / `quality` (~37 FPS) |
 | `--backend` | `lcm_graph` | `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
 | `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
 | `--prompt` | see config.py | Generation prompt |
@@ -198,4 +198,4 @@ scripts/
 - INT8 (bitsandbytes) — falls back to dequantize+fp16, 2x slower
 - FP8 (`torch._scaled_mm`) — per-call cast overhead > GEMM gain without calibrated scales
 
-**Hard floor:** UNet+adapter CUDA graph replay = **16.6ms @ 384×384** (60 FPS theoretical max). End-to-end latency avg **5.8ms** (p95=11ms) due to pose frame reuse.
+**Hard floor:** UNet+adapter CUDA graph replay = **15.6ms @ 384×384** (64 FPS theoretical max). End-to-end latency ~16.7ms (~60 FPS) including D2H copy.
