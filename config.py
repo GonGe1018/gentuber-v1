@@ -28,8 +28,11 @@ class Config:
     #   "controlnet"    -- LCM + ControlNet  (~19 FPS @ 384)
     engine_backend: str = "lcm_graph"
 
-    # Model IDs
-    base_model_id: str = "SimianLuo/LCM_Dreamshaper_v7"
+    # Anime model for lcm_graph backend (any SD1.5-compatible HuggingFace model)
+    # Good options:
+    #   "KBlueLeaf/kohaku-v2.1"  -- clean anime style (default)
+    #   "Lykon/dreamshaper-8"    -- painterly, slightly faster
+    lcm_model_id: str = "KBlueLeaf/kohaku-v2.1"
     controlnet_model_id: str = "lllyasviel/control_v11p_sd15_openpose"
     t2i_adapter_model_id: str = "TencentARC/t2iadapter_openpose_sd14v1"
     taesd_model_id: str = "madebyollin/taesd"

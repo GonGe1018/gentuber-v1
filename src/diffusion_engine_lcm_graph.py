@@ -47,10 +47,12 @@ class DiffusionEngineLCMGraph:
         cfg,
         in_queue: queue.Queue,
         out_queue: queue.Queue,
-        model_id: str = ANIME_MODEL_ID,
+        model_id: str = None,
     ):
         self.cfg = cfg
         self.in_queue = in_queue
+        self.out_queue = out_queue
+        self.model_id = model_id or getattr(cfg, "lcm_model_id", ANIME_MODEL_ID)
         self.out_queue = out_queue
         self.model_id = model_id
         self._thread: Optional[threading.Thread] = None
