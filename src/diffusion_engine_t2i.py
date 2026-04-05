@@ -168,7 +168,7 @@ class DiffusionEngineT2I:
                         break
                 except queue.Empty:
                     if prev_gpu_frame is not None:
-                        torch.cuda.current_stream().wait_stream(copy_stream)
+                        copy_stream.synchronize()
                         frame = (
                             prev_gpu_frame[0].permute(1, 2, 0).cpu().numpy().clip(0, 1)
                             * 255

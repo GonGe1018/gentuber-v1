@@ -206,7 +206,7 @@ class DiffusionEngine:
                 except queue.Empty:
                     # No new frame — flush prev_gpu_frame if pending
                     if prev_gpu_frame is not None:
-                        torch.cuda.current_stream().wait_stream(copy_stream)
+                        copy_stream.synchronize()
                         frame = (
                             prev_gpu_frame[0].permute(1, 2, 0).cpu().numpy().clip(0, 1)
                         )
@@ -261,7 +261,7 @@ class DiffusionEngine:
                         .permute(1, 2, 0)
                         .to(device="cpu", non_blocking=True)
                     )
-                torch.cuda.current_stream().wait_stream(copy_stream)
+                copy_stream.synchronize()
                 frame = (cpu_frame.float().numpy().clip(0, 1) * 255).astype(np.uint8)
                 if self.out_queue.full():
                     try:
