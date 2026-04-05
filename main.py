@@ -124,6 +124,7 @@ def pose_worker(
     extractor: PoseExtractor,
     pose_queue: queue.Queue,
     stop_event: threading.Event,
+    skeleton_queue: queue.Queue | None = None,
 ) -> None:
     while not stop_event.is_set():
         frame_bgr = capture.read(timeout=0.1)
@@ -139,6 +140,14 @@ def pose_worker(
             except queue.Empty:
                 pass
         pose_queue.put(ctrl_preprocessed)
+        # Keep latest raw HWC uint8 for skeleton overlay display
+        if skeleton_queue is not None:
+            if skeleton_queue.full():
+                try:
+                    skeleton_queue.get_nowait()
+                except queue.Empty:
+                    pass
+            skeleton_queue.put(control_map)
 
 
 def main() -> None:
@@ -196,6 +205,7 @@ def main() -> None:
 
     pose_queue = queue.Queue(maxsize=cfg.pose_queue_size)
     out_queue = queue.Queue(maxsize=cfg.output_queue_size)
+    skeleton_queue = queue.Queue(maxsize=2)  # HWC uint8 for display overlay
 
     capture = VideoCapture(
         source=cfg.video_source,
@@ -242,7 +252,7 @@ def main() -> None:
 
     pose_thread = threading.Thread(
         target=pose_worker,
-        args=(capture, extractor, pose_queue, stop_event),
+        args=(capture, extractor, pose_queue, stop_event, skeleton_queue),
         daemon=True,
         name="pose",
     )
@@ -276,11 +286,11 @@ def main() -> None:
 
             frame_rgb = interp.blend(frame_rgb)
 
+            # Get latest skeleton for overlay (HWC uint8 from skeleton_queue)
             try:
-                last_skeleton = (
-                    pose_queue.queue[-1] if pose_queue.queue else last_skeleton
-                )
-            except Exception:
+                while True:
+                    last_skeleton = skeleton_queue.get_nowait()
+            except queue.Empty:
                 pass
 
             alive = renderer.show(frame_rgb, skeleton_rgb=last_skeleton)
