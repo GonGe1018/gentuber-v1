@@ -48,10 +48,14 @@ class Config:
     guidance_scale: float = 1.0  # LCM works best at 1.0 (CFG-free)
 
     prompt: str = (
-        "anime girl, full body, colorful outfit, white background, "
-        "high quality, detailed, 2d illustration"
+        "masterpiece, best quality, anime girl, full body, "
+        "colorful outfit, white background, 2d illustration, "
+        "sharp focus, vibrant colors"
     )
-    negative_prompt: str = "blurry, low quality, realistic, 3d, photo"
+    negative_prompt: str = (
+        "lowres, bad anatomy, bad hands, missing fingers, "
+        "blurry, low quality, realistic, 3d, photo, watermark"
+    )
 
     # Pipeline queue depths (keep small to minimise latency)
     capture_queue_size: int = 2
