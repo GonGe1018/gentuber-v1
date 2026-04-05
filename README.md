@@ -180,6 +180,7 @@ scripts/
 | MediaPipe VIDEO mode | ~25% pose | Temporal tracking vs per-frame detect |
 | pose_landmarker_lite | ~12% pose | 3MB vs 8MB model |
 | ctrl preprocessing in pose thread | 0ms hot path | 3ms numpy work offloaded |
+| float32 intermediate in preprocess | ~1.5ms pose | 2x faster than direct float16 cast |
 | `cv2.addWeighted` interpolation | ~0.5ms | SIMD uint8 vs float32 cast |
 | `cv2.convertScaleAbs` D2H cast | ~0.4ms | 15x faster than `(arr*255).astype(u8)` |
 | CPU timestep (avoid device sync) | ~15ms | `int(t.cpu())` vs `int(t)` on CUDA tensor |
