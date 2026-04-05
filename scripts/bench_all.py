@@ -8,11 +8,17 @@ Usage:
     uv run python scripts/bench_all.py
 """
 
+import os
 import queue
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*safety_checker.*")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
