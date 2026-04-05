@@ -66,6 +66,11 @@ def parse_args():
     )
     p.add_argument("--prompt", default=None, help="Override generation prompt")
     p.add_argument(
+        "--model",
+        default=None,
+        help="Anime model for lcm_graph backend (e.g. 'KBlueLeaf/kohaku-v2.1', 'Lykon/dreamshaper-8')",
+    )
+    p.add_argument(
         "--no-skeleton", action="store_true", help="Disable skeleton overlay on output"
     )
     p.add_argument(
@@ -166,6 +171,8 @@ def main() -> None:
         cfg.output_width = cfg.output_height = s
         cfg.detect_hands = p["detect_hands"]
 
+    _lcm_model_id = args.model  # None = use engine default (KohakuV2)
+
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
     print("=" * 60)
@@ -193,7 +200,10 @@ def main() -> None:
     # Select engine backend from config
     if cfg.engine_backend == "lcm_graph":
         engine = DiffusionEngineLCMGraph(
-            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+            cfg=cfg,
+            in_queue=pose_queue,
+            out_queue=out_queue,
+            **({} if _lcm_model_id is None else {"model_id": _lcm_model_id}),
         )
     elif cfg.engine_backend == "sdturbo_graph":
         engine = DiffusionEngineSDTurboGraph(
