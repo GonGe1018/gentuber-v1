@@ -133,6 +133,14 @@ class DiffusionEngineLCMGraph:
         self._transfer_stream = torch.cuda.Stream()
 
         self._build_graph()
+
+        # Pre-compute scheduler timesteps for worker (CPU to avoid device sync in hot loop)
+        self._pipe.scheduler.set_timesteps(
+            max(1, self.cfg.num_inference_steps), device=device
+        )
+        self._timesteps = self._pipe.scheduler.timesteps.cpu()
+        self._sigma_0 = float(self._pipe.scheduler.init_noise_sigma)
+
         print("[LCMGraph] Ready.")
 
     def _build_graph(self) -> None:
@@ -209,6 +217,7 @@ class DiffusionEngineLCMGraph:
         pipe = self._pipe
         H, W = self._H, self._W
         lH, lW = H // 8, W // 8
+        steps = max(1, cfg.num_inference_steps)
 
         torch.set_num_threads(2)
         generator = torch.Generator(device=device).manual_seed(42)
@@ -232,14 +241,9 @@ class DiffusionEngineLCMGraph:
         pinned_out = torch.empty((H, W, 3), dtype=torch.float32, pin_memory=True)
         copy_stream = torch.cuda.Stream()
 
-        # LCM 1-step: t=999, sigma from scheduler
-        t = pipe.scheduler.timesteps[0]
-        # LCMScheduler uses init_noise_sigma; SD-Turbo uses sigmas[0]
-        sigma = float(
-            getattr(pipe.scheduler, "sigmas", None)
-            and pipe.scheduler.sigmas[0]
-            or pipe.scheduler.init_noise_sigma
-        )
+        # Use pre-computed scheduler state from load()
+        timesteps = self._timesteps
+        sigma_0 = self._sigma_0
 
         def upload_ctrl(ctrl_map, pinned, gpu_buf):
             if (
@@ -292,34 +296,78 @@ class DiffusionEngineLCMGraph:
             with torch.inference_mode():
                 noise = noise_ring[noise_idx]
                 noise_idx = (noise_idx + 1) % NOISE_RING
-                self._static_latents.copy_(
-                    (noise * sigma).to(memory_format=torch.channels_last)
-                )
-                self._static_timestep.fill_(int(t))
 
-                next_ctrl = get_control_map(last_ctrl)
-                if next_ctrl is not None:
-                    upload_ctrl(next_ctrl, next_pinned, next_gpu)
-                    next_ctrl_ready = True
-                    last_ctrl = next_ctrl
-
-                self._graph.replay()
-
-                if next_ctrl_ready:
-                    torch.cuda.current_stream().wait_stream(self._transfer_stream)
-                    self._static_ctrl.copy_(next_gpu)
-                    next_pinned, next_gpu = (
-                        (pinned_A, gpu_A) if next_gpu is gpu_B else (pinned_B, gpu_B)
+                if steps == 1:
+                    # ── Fast path: CUDA graph ─────────────────────────────
+                    self._static_latents.copy_(
+                        (noise * sigma_0).to(memory_format=torch.channels_last)
                     )
-                    next_ctrl_ready = False
+                    self._static_timestep.fill_(int(timesteps[0]))
 
-                with torch.cuda.stream(copy_stream):
-                    frame_gpu = (
-                        self._static_decoded[0].permute(1, 2, 0).float() + 1.0
-                    ) * 0.5
-                    pinned_out.copy_(
-                        frame_gpu.nan_to_num(0.0).clamp(0, 1), non_blocking=True
-                    )
+                    next_ctrl = get_control_map(last_ctrl)
+                    if next_ctrl is not None:
+                        upload_ctrl(next_ctrl, next_pinned, next_gpu)
+                        next_ctrl_ready = True
+                        last_ctrl = next_ctrl
+
+                    self._graph.replay()
+
+                    if next_ctrl_ready:
+                        torch.cuda.current_stream().wait_stream(self._transfer_stream)
+                        self._static_ctrl.copy_(next_gpu)
+                        next_pinned, next_gpu = (
+                            (pinned_A, gpu_A)
+                            if next_gpu is gpu_B
+                            else (pinned_B, gpu_B)
+                        )
+                        next_ctrl_ready = False
+
+                    with torch.cuda.stream(copy_stream):
+                        frame_gpu = (
+                            self._static_decoded[0].permute(1, 2, 0).float() + 1.0
+                        ) * 0.5
+                        pinned_out.copy_(
+                            frame_gpu.nan_to_num(0.0).clamp(0, 1), non_blocking=True
+                        )
+
+                else:
+                    # ── Multi-step: eager (CUDA graph can't capture loops) ─
+                    next_ctrl = get_control_map(last_ctrl)
+                    if next_ctrl is not None:
+                        upload_ctrl(next_ctrl, next_pinned, next_gpu)
+                        torch.cuda.current_stream().wait_stream(self._transfer_stream)
+                        self._static_ctrl.copy_(next_gpu)
+                        next_pinned, next_gpu = (
+                            (pinned_A, gpu_A)
+                            if next_gpu is gpu_B
+                            else (pinned_B, gpu_B)
+                        )
+                        last_ctrl = next_ctrl
+
+                    latents = noise * sigma_0
+                    adapter_state = self._adapter(self._static_ctrl)
+
+                    for t in timesteps:
+                        noise_pred = pipe.unet(
+                            latents.to(memory_format=torch.channels_last),
+                            t,
+                            self._prompt_embeds,
+                            down_intrablock_additional_residuals=adapter_state,
+                            return_dict=False,
+                        )[0]
+                        latents = pipe.scheduler.step(
+                            noise_pred, t, latents, return_dict=False
+                        )[0]
+
+                    decoded = pipe.vae.decode(
+                        latents / pipe.vae.config.scaling_factor, return_dict=False
+                    )[0]
+
+                    with torch.cuda.stream(copy_stream):
+                        frame_gpu = (decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
+                        pinned_out.copy_(
+                            frame_gpu.nan_to_num(0.0).clamp(0, 1), non_blocking=True
+                        )
 
             torch.cuda.current_stream().wait_stream(copy_stream)
             frame = (pinned_out.numpy() * 255).astype(np.uint8)

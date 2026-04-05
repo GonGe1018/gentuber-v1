@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import cfg
 from src.capture import VideoCapture
-from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph
+from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph, ANIME_MODEL_ID
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 
@@ -45,7 +45,12 @@ def main():
 
     capture = VideoCapture(cfg.video_source, width=W, height=H, queue_size=2, loop=True)
     extractor = PoseExtractor(width=W, height=H, detect_hands=False)
-    engine = DiffusionEngineLCMGraph(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
+    engine = DiffusionEngineLCMGraph(
+        cfg=cfg,
+        in_queue=pose_queue,
+        out_queue=out_queue,
+        model_id=getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID,
+    )
 
     engine.load()
 
