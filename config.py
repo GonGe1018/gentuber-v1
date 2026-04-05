@@ -59,6 +59,8 @@ class Config:
 
     # Noise seed for reproducible output (42 = fixed, -1 = random each run)
     seed: int = 42
+
+    # Pipeline queue depths (keep small to minimise latency)
     capture_queue_size: int = 2
     pose_queue_size: int = 2
     output_queue_size: int = 4
