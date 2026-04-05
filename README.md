@@ -69,6 +69,7 @@ Or use the convenience script:
 | `--backend` | `lcm_graph` | `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
 | `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
 | `--prompt` | see config.py | Generation prompt |
+| `--negative-prompt` | see config.py | Negative prompt |
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
 | `--no-hands` | off | Skip hand landmark detection |
@@ -88,16 +89,23 @@ cfg.lcm_model_id = "Lykon/dreamshaper-8"  # alternative anime model
 
 ## Benchmarks
 
-Run the full benchmark suite:
+Run the full benchmark suite (eager backends):
 
 ```powershell
 uv run python scripts/bench_all.py
 ```
 
-Per-stage profiling:
+Pure engine throughput (CUDA graph backends):
 
 ```powershell
-uv run python scripts/profile_pipeline.py
+uv run python scripts/bench_throughput.py --engine lcm_graph
+uv run python scripts/bench_throughput.py --engine sdturbo_graph
+```
+
+Per-op hot path profiling:
+
+```powershell
+uv run python scripts/profile_worker.py
 ```
 
 ## Models
