@@ -79,10 +79,11 @@ Edit `config.py` to change defaults without CLI flags:
 
 ```python
 cfg.video_source = 0          # webcam
-cfg.num_inference_steps = 2   # better quality
+cfg.num_inference_steps = 2   # better quality (t2i/controlnet only)
 cfg.output_width = 512        # higher resolution
 cfg.prompt = "..."            # your prompt
 cfg.detect_hands = False      # skip hand detection
+cfg.lcm_model_id = "Lykon/dreamshaper-8"  # alternative anime model
 ```
 
 ## Benchmarks
