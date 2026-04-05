@@ -174,12 +174,16 @@ def main():
             capture_output=True,
             text=True,
         )
+        if result.returncode != 0:
+            print(
+                f"  [ERROR size={size}] {result.stderr.splitlines()[-1] if result.stderr else 'unknown'}"
+            )
+            continue
         for line in result.stdout.splitlines():
             stripped = line.strip()
             if stripped.startswith("model:"):
                 print(f"  {stripped}")
             elif stripped and stripped[0].isdigit():
-                # Re-format: size FPS ms/frame
                 parts = stripped.split()
                 if len(parts) == 3:
                     print(f"{parts[0]:>8}  {parts[1]:>8}  {parts[2]:>10}")
