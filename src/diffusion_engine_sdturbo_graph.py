@@ -14,6 +14,7 @@ import queue
 import threading
 from typing import Optional
 
+import cv2
 import numpy as np
 import torch
 from diffusers import (
@@ -316,7 +317,7 @@ class DiffusionEngineSDTurboGraph:
                     )
 
             torch.cuda.current_stream().wait_stream(copy_stream)
-            frame = (pinned_out.numpy() * 255).astype(np.uint8)
+            frame = cv2.convertScaleAbs(pinned_out.numpy(), alpha=255)
 
             if self.out_queue.full():
                 try:
