@@ -74,6 +74,7 @@ Or use the convenience script:
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
 | `--no-hands` | off | Skip hand landmark detection |
+| `--temporal` | `0.5` | Latent blending (0.0=frozen, 1.0=no coherence) |
 
 ## Configuration
 
