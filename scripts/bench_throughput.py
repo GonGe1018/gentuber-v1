@@ -23,7 +23,7 @@ from src.capture import VideoCapture
 from src.pose_extractor import PoseExtractor
 
 N_WARMUP = 30
-N_BENCH = 300
+N_BENCH = 200
 
 SIZES = [256, 384, 512]
 
