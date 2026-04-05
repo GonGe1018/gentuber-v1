@@ -179,9 +179,12 @@ class DiffusionEngineLCMGraph:
                     return_dict=False,
                 )[0]
                 x0 = (
-                    self._static_latents - self._sqrt_one_minus_alpha * noise_pred
-                ) / self._sqrt_alpha
-                pipe.vae.decode(x0 / pipe.vae.config.scaling_factor, return_dict=False)
+                    self._static_latents.float()
+                    - self._sqrt_one_minus_alpha.float() * noise_pred.float()
+                ) / self._sqrt_alpha.float()
+                pipe.vae.decode(
+                    x0.to(dtype) / pipe.vae.config.scaling_factor, return_dict=False
+                )
         torch.cuda.synchronize()
 
         print("[LCMGraph] Capturing CUDA graph (adapter+UNet+denoise+VAE) ...")
@@ -196,13 +199,15 @@ class DiffusionEngineLCMGraph:
                     down_intrablock_additional_residuals=self._adapter_state,
                     return_dict=False,
                 )[0]
-                # x0 = (latents - sqrt(1-alpha) * noise_pred) / sqrt(alpha)
+                # Compute x0 in float32 to avoid float16 catastrophic cancellation.
+                # At t=999: sqrt_alpha≈0.068, so dividing by it amplifies fp16 rounding errors.
                 _x0 = (
-                    self._static_latents
-                    - self._sqrt_one_minus_alpha * self._static_noise_pred
-                ) / self._sqrt_alpha
+                    self._static_latents.float()
+                    - self._sqrt_one_minus_alpha.float()
+                    * self._static_noise_pred.float()
+                ) / self._sqrt_alpha.float()
                 self._static_decoded = pipe.vae.decode(
-                    _x0 / pipe.vae.config.scaling_factor, return_dict=False
+                    _x0.to(dtype) / pipe.vae.config.scaling_factor, return_dict=False
                 )[0]
         torch.cuda.synchronize()
         print(f"[LCMGraph] Graph captured ({lH}x{lW} latents)")
@@ -341,6 +346,8 @@ class DiffusionEngineLCMGraph:
                         )
                         next_ctrl_ready = False
 
+                    # ── D2H: launch on copy_stream after graph finishes ───
+                    copy_stream.wait_stream(torch.cuda.current_stream())
                     with torch.cuda.stream(copy_stream):
                         frame_gpu = (
                             self._static_decoded[0].permute(1, 2, 0).float() + 1.0
@@ -384,7 +391,7 @@ class DiffusionEngineLCMGraph:
                         frame_gpu = (decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
                         pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
 
-            torch.cuda.current_stream().wait_stream(copy_stream)
+            copy_stream.synchronize()
             frame = cv2.convertScaleAbs(pinned_out.numpy(), alpha=255)
 
             if self.out_queue.full():
