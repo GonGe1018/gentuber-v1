@@ -176,6 +176,10 @@ class PoseExtractor:
         else:
             self._hands = None
 
+        # Pre-allocated buffers for preprocess() — avoids per-call allocation
+        self._f32_buf = np.empty((height, width, 3), dtype=np.float32)
+        self._f16_buf = np.empty((3, height, width), dtype=np.float16)
+
     def process(self, bgr_frame: np.ndarray):
         rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
@@ -238,17 +242,15 @@ class PoseExtractor:
         Converts HWC uint8 RGB -> CHW float16 [0,1] in the pose thread,
         eliminating this CPU op from the diffusion engine worker.
 
-        Uses float32 intermediate (2x faster than direct float16 cast).
+        Uses pre-allocated buffers and float32 intermediate for speed.
 
         Returns
         -------
         np.ndarray  shape (3, H, W)  dtype float16
         """
-        return (
-            (canvas.astype(np.float32) * (1.0 / 255.0))
-            .transpose(2, 0, 1)
-            .astype(np.float16)
-        )
+        np.multiply(canvas, 1.0 / 255.0, out=self._f32_buf, casting="unsafe")
+        self._f16_buf[:] = self._f32_buf.transpose(2, 0, 1)
+        return self._f16_buf
 
     def close(self) -> None:
         self._pose.close()
