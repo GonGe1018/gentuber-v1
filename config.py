@@ -75,6 +75,12 @@ class Config:
     #   1.0 = always show latest frame
     interp_alpha: float = 0.3
 
+    # Temporal latent blending: mix previous denoised latent into next frame's noise
+    #   0.0 = fully reuse previous latent (frozen, no variation)
+    #   1.0 = fully new noise each frame (current default, no temporal coherence)
+    #   0.5 = recommended balance (smooth transitions, still responsive to pose)
+    temporal_blend: float = 0.5
+
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"

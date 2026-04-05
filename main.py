@@ -116,6 +116,12 @@ def parse_args():
         default=60.0,
         help="Cap display refresh rate (default: 60, 0=uncapped)",
     )
+    p.add_argument(
+        "--temporal",
+        type=float,
+        default=None,
+        help="Temporal latent blending (0.0=frozen, 1.0=no coherence, default: 0.5)",
+    )
     return p.parse_args()
 
 
@@ -193,6 +199,8 @@ def main() -> None:
 
     if args.model is not None:
         cfg.lcm_model_id = args.model
+    if args.temporal is not None:
+        cfg.temporal_blend = max(0.0, min(1.0, args.temporal))
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
