@@ -142,14 +142,17 @@ src/
 scripts/
   test_stage1.py            # pose extraction benchmark (54 FPS)
   test_stage3.py            # end-to-end pipeline benchmark
-  test_graph_engine.py      # CUDA graph engine benchmark
+  test_graph_engine.py      # CUDA graph engine benchmark (sdturbo_graph)
+  test_lcm_graph.py         # CUDA graph engine benchmark (lcm_graph)
   test_t2i_adapter.py       # T2I-Adapter engine benchmark
   test_webcam.py            # live webcam test with display
   bench_all.py              # full benchmark matrix (all backends x resolutions)
   bench_throughput.py       # pure engine throughput (no I/O bottleneck)
-  bench_latency.py          # end-to-end latency (7.2ms avg @ 384x384)
+  bench_latency.py          # end-to-end latency (5.9ms avg @ 384x384)
   bench_cuda_graphs.py      # CUDA graph vs eager UNet comparison
   bench_sdturbo.py          # SD-Turbo vs LCM isolated comparison
+  bench_anime_lcm.py        # anime model comparison (KohakuV2 vs DreamShaper8)
+  bench_lcm_steps.py        # LCM step count vs speed tradeoff
   bench_gil_contention.py   # GIL contention measurement (0.3%)
   bench_int8.py             # INT8 quantization (slower on Windows)
   bench_fp8.py              # FP8 quantization (slower without calibration)
