@@ -215,7 +215,7 @@ class DiffusionEngineSDTurboGraph:
         pinned_out = torch.empty((H, W, 3), dtype=torch.float32, pin_memory=True)
         copy_stream = torch.cuda.Stream()
 
-        t = pipe.scheduler.timesteps[0]
+        t = int(pipe.scheduler.timesteps[0].cpu())
         sigma = float(pipe.scheduler.sigmas[0])
 
         def upload_ctrl(ctrl_map, pinned, gpu_buf):
