@@ -33,6 +33,9 @@ class Config:
     #   "KBlueLeaf/kohaku-v2.1"  -- clean anime style (default)
     #   "Lykon/dreamshaper-8"    -- painterly, slightly faster
     lcm_model_id: str = "KBlueLeaf/kohaku-v2.1"
+
+    # Base model for t2i / controlnet backends (LCM-finetuned SD1.5)
+    base_model_id: str = "SimianLuo/LCM_Dreamshaper_v7"
     controlnet_model_id: str = "lllyasviel/control_v11p_sd15_openpose"
     t2i_adapter_model_id: str = "TencentARC/t2iadapter_openpose_sd14v1"
     taesd_model_id: str = "madebyollin/taesd"
