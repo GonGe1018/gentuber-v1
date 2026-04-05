@@ -1,11 +1,12 @@
 # run.ps1 — Setup and launch for realtime-live2d
 # Usage: .\run.ps1 [args passed to main.py]
 # Examples:
-#   .\run.ps1                              # default (384x384, T2I, 1 step)
+#   .\run.ps1                              # default (384x384, lcm_graph, ~73 FPS)
 #   .\run.ps1 --source 0                   # webcam
-#   .\run.ps1 --size 256                   # fast mode (~26 FPS)
-#   .\run.ps1 --size 512 --steps 2         # quality mode (~9 FPS)
-#   .\run.ps1 --backend controlnet         # ControlNet backend
+#   .\run.ps1 --quality fast               # 256px, no hands (~121 FPS)
+#   .\run.ps1 --quality quality            # 512px (~43 FPS)
+#   .\run.ps1 --backend sdturbo_graph      # SD-Turbo backend (~72 FPS)
+#   .\run.ps1 --steps 2                    # 2-step LCM (better quality, ~16 FPS)
 
 $ErrorActionPreference = "Stop"
 
