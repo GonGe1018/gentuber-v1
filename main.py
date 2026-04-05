@@ -221,8 +221,13 @@ def main() -> None:
     )
     # Select engine backend from config
     if cfg.engine_backend == "lcm_graph":
+        from src.diffusion_engine_lcm_graph import ANIME_MODEL_ID
+
         engine = DiffusionEngineLCMGraph(
-            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+            cfg=cfg,
+            in_queue=pose_queue,
+            out_queue=out_queue,
+            model_id=getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID,
         )
     elif cfg.engine_backend == "sdturbo_graph":
         engine = DiffusionEngineSDTurboGraph(
