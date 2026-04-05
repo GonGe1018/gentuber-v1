@@ -250,15 +250,8 @@ class DiffusionEngineLCMGraph:
         sigma_0 = self._sigma_0
 
         def upload_ctrl(ctrl_map, pinned, gpu_buf):
-            if (
-                ctrl_map.dtype == np.float16
-                and ctrl_map.ndim == 3
-                and ctrl_map.shape[0] == 3
-            ):
-                pinned[0].copy_(torch.from_numpy(ctrl_map), non_blocking=False)
-            else:
-                np_ctrl = ctrl_map.transpose(2, 0, 1).astype(np.float16) / 255.0
-                pinned[0].copy_(torch.from_numpy(np_ctrl), non_blocking=False)
+            """Upload CHW float16 control map to GPU on transfer_stream."""
+            pinned[0].copy_(torch.from_numpy(ctrl_map), non_blocking=False)
             with torch.cuda.stream(self._transfer_stream):
                 gpu_buf.copy_(pinned, non_blocking=True)
 
