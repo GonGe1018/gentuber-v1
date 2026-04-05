@@ -193,4 +193,4 @@ scripts/
 - INT8 (bitsandbytes) — falls back to dequantize+fp16, 2x slower
 - FP8 (`torch._scaled_mm`) — per-call cast overhead > GEMM gain without calibrated scales
 
-**Hard floor:** UNet+adapter CUDA graph replay = **15.6ms @ 384×384** (64 FPS theoretical max).
+**Hard floor:** UNet+adapter CUDA graph replay = **16.6ms @ 384×384** (60 FPS theoretical max). End-to-end latency avg **5.9ms** (p95=11ms) due to pose frame reuse.
