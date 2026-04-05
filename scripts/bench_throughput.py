@@ -179,7 +179,10 @@ def main():
             if stripped.startswith("model:"):
                 print(f"  {stripped}")
             elif stripped and stripped[0].isdigit():
-                print(f"{stripped:>32}")
+                # Re-format: size FPS ms/frame
+                parts = stripped.split()
+                if len(parts) == 3:
+                    print(f"{parts[0]:>8}  {parts[1]:>8}  {parts[2]:>10}")
 
     print("-" * 32)
     print("Done.")
