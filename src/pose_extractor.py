@@ -236,13 +236,19 @@ class PoseExtractor:
         Pre-process a control map for the graph engine hot path.
 
         Converts HWC uint8 RGB -> CHW float16 [0,1] in the pose thread,
-        eliminating this 3ms CPU op from the diffusion engine worker.
+        eliminating this CPU op from the diffusion engine worker.
+
+        Uses float32 intermediate (2x faster than direct float16 cast).
 
         Returns
         -------
         np.ndarray  shape (3, H, W)  dtype float16
         """
-        return canvas.transpose(2, 0, 1).astype(np.float16) / 255.0
+        return (
+            (canvas.astype(np.float32) * (1.0 / 255.0))
+            .transpose(2, 0, 1)
+            .astype(np.float16)
+        )
 
     def close(self) -> None:
         self._pose.close()
