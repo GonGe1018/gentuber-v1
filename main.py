@@ -171,7 +171,8 @@ def main() -> None:
         cfg.output_width = cfg.output_height = s
         cfg.detect_hands = p["detect_hands"]
 
-    _lcm_model_id = args.model  # None = use engine default (KohakuV2)
+    if args.model is not None:
+        cfg.lcm_model_id = args.model
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
@@ -200,10 +201,7 @@ def main() -> None:
     # Select engine backend from config
     if cfg.engine_backend == "lcm_graph":
         engine = DiffusionEngineLCMGraph(
-            cfg=cfg,
-            in_queue=pose_queue,
-            out_queue=out_queue,
-            **({} if _lcm_model_id is None else {"model_id": _lcm_model_id}),
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
         )
     elif cfg.engine_backend == "sdturbo_graph":
         engine = DiffusionEngineSDTurboGraph(
