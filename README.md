@@ -114,8 +114,10 @@ Downloaded automatically on first run to `~/.cache/huggingface/`:
 
 | Model | Size | Purpose |
 |---|---|---|
-| `stabilityai/sd-turbo` | 3.1 GB | Base diffusion model |
-| `TencentARC/t2iadapter_openpose_sd14v1` | 77 MB | Pose conditioning |
+| `KBlueLeaf/kohaku-v2.1` | ~2 GB | Anime SD1.5 base (lcm_graph default) |
+| `latent-consistency/lcm-lora-sdv1-5` | ~200 MB | LCM-LoRA weights (fused at startup) |
+| `stabilityai/sd-turbo` | 3.1 GB | SD-Turbo base (sdturbo_graph) |
+| `TencentARC/t2iadapter_openpose_sd14v1` | 77 MB | Pose conditioning (T2I-Adapter) |
 | `lllyasviel/control_v11p_sd15_openpose` | 361 MB | ControlNet (alternative) |
 | `madebyollin/taesd` | 5 MB | Tiny VAE decoder |
 | `pose_landmarker_lite.task` | ~5 MB | MediaPipe pose model |
