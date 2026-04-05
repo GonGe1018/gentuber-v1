@@ -53,8 +53,6 @@ class DiffusionEngineLCMGraph:
         self.in_queue = in_queue
         self.out_queue = out_queue
         self.model_id = model_id or getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID
-        self.out_queue = out_queue
-        self.model_id = model_id
         self._thread: Optional[threading.Thread] = None
         self._running = False
 
@@ -158,38 +156,54 @@ class DiffusionEngineLCMGraph:
         self._static_ctrl = torch.zeros((1, 3, H, W), dtype=dtype, device=device).to(
             memory_format=torch.channels_last
         )
-        # LCM 1-step: use t=999 (same as SD-Turbo)
+        # LCM 1-step: t=999
         self._static_timestep = torch.tensor([999], dtype=torch.long, device=device)
+
+        # Precompute denoising constants for t=999 (baked into CUDA graph).
+        # LCM prediction_type="epsilon": x0 = (latents - sqrt(1-a)*noise) / sqrt(a)
+        # For 1-step LCM the final output IS x0 (going straight to t=0).
+        t_val = 999
+        alpha_prod = pipe.scheduler.alphas_cumprod[t_val].to(device=device, dtype=dtype)
+        self._sqrt_alpha = alpha_prod.sqrt()
+        self._sqrt_one_minus_alpha = (1.0 - alpha_prod).sqrt()
 
         print("[LCMGraph] Warming up for CUDA graph capture ...")
         with torch.inference_mode():
             for _ in range(12):
                 a = adapter(self._static_ctrl)
-                u = pipe.unet(
+                noise_pred = pipe.unet(
                     self._static_latents,
                     self._static_timestep,
                     self._prompt_embeds,
                     down_intrablock_additional_residuals=a,
                     return_dict=False,
                 )[0]
-                d = u / pipe.vae.config.scaling_factor
-                pipe.vae.decode(d, return_dict=False)
+                x0 = (
+                    self._static_latents - self._sqrt_one_minus_alpha * noise_pred
+                ) / self._sqrt_alpha
+                pipe.vae.decode(x0 / pipe.vae.config.scaling_factor, return_dict=False)
         torch.cuda.synchronize()
 
-        print("[LCMGraph] Capturing CUDA graph (adapter+UNet+VAE) ...")
+        print("[LCMGraph] Capturing CUDA graph (adapter+UNet+denoise+VAE) ...")
         self._graph = torch.cuda.CUDAGraph()
         with torch.inference_mode():
             with torch.cuda.graph(self._graph):
                 self._adapter_state = adapter(self._static_ctrl)
-                self._static_unet_out = pipe.unet(
+                self._static_noise_pred = pipe.unet(
                     self._static_latents,
                     self._static_timestep,
                     self._prompt_embeds,
                     down_intrablock_additional_residuals=self._adapter_state,
                     return_dict=False,
                 )[0]
-                _d = self._static_unet_out / pipe.vae.config.scaling_factor
-                self._static_decoded = pipe.vae.decode(_d, return_dict=False)[0]
+                # x0 = (latents - sqrt(1-alpha) * noise_pred) / sqrt(alpha)
+                _x0 = (
+                    self._static_latents
+                    - self._sqrt_one_minus_alpha * self._static_noise_pred
+                ) / self._sqrt_alpha
+                self._static_decoded = pipe.vae.decode(
+                    _x0 / pipe.vae.config.scaling_factor, return_dict=False
+                )[0]
         torch.cuda.synchronize()
         print(f"[LCMGraph] Graph captured ({lH}x{lW} latents)")
 
