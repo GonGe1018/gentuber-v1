@@ -1,3 +1,6 @@
+#opencode
+session-*
+
 # Python
 __pycache__/
 *.py[cod]
