@@ -102,6 +102,12 @@ class Config:
     #   0.015 = filter MediaPipe jitter (static pose → identical frames)
     ctrl_jitter_threshold: float = 0.015
 
+    # ControlNet conditioning scale: how strongly the pose skeleton guides generation
+    #   0.5 = weak pose guide (more freedom for the model)
+    #   1.0 = default
+    #   1.5-2.0 = strong pose guide (recommended for reference img2img)
+    controlnet_conditioning_scale: float = 1.5
+
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"

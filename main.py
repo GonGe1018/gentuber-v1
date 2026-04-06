@@ -133,6 +133,12 @@ def parse_args():
         default=None,
         help="Reference character image for img2img (default: config.reference_image)",
     )
+    p.add_argument(
+        "--cn-scale",
+        type=float,
+        default=None,
+        help="ControlNet conditioning scale (0.5=weak, 1.5=strong pose guide, default: 1.5)",
+    )
     return p.parse_args()
 
 
@@ -225,6 +231,8 @@ def main() -> None:
     if args.reference is not None:
         cfg.reference_image = args.reference
         cfg.img2img_input = "reference"
+    if args.cn_scale is not None:
+        cfg.controlnet_conditioning_scale = args.cn_scale
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")

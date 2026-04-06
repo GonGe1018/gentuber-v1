@@ -194,6 +194,7 @@ class DiffusionEngine:
 
             warmup_steps = max(warmup_steps, math.ceil(1.0 / self._strength))
         with torch.inference_mode():
+            cn_scale = getattr(cfg, "controlnet_conditioning_scale", 1.0)
             for _ in range(8):
                 if self._use_source or self._use_reference:
                     pipe(
@@ -204,6 +205,7 @@ class DiffusionEngine:
                         strength=self._strength,
                         num_inference_steps=warmup_steps,
                         guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=cn_scale,
                         output_type="pt",
                     )
                 else:
@@ -213,6 +215,7 @@ class DiffusionEngine:
                         image=dummy,
                         num_inference_steps=warmup_steps,
                         guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=cn_scale,
                         width=W,
                         height=H,
                         output_type="pt",
@@ -334,6 +337,7 @@ class DiffusionEngine:
 
             # ── GPU inference ─────────────────────────────────────────────
             with torch.inference_mode():
+                cn_scale = getattr(cfg, "controlnet_conditioning_scale", 1.0)
                 if src_tensor is not None:
                     result = self._pipe(
                         prompt_embeds=self._prompt_embeds,
@@ -343,6 +347,7 @@ class DiffusionEngine:
                         strength=self._strength,
                         num_inference_steps=self._actual_steps,
                         guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=cn_scale,
                         generator=generator,
                         output_type="pt",
                     )
@@ -353,6 +358,7 @@ class DiffusionEngine:
                         image=ctrl_tensor,
                         num_inference_steps=self._actual_steps,
                         guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=cn_scale,
                         width=cfg.output_width,
                         height=cfg.output_height,
                         generator=generator,
