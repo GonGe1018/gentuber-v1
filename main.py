@@ -85,9 +85,16 @@ def parse_args():
     )
     p.add_argument(
         "--backend",
-        choices=["lcm_graph", "sdturbo_graph", "sdturbo", "t2i", "controlnet"],
+        choices=[
+            "ip_adapter",
+            "lcm_graph",
+            "sdturbo_graph",
+            "sdturbo",
+            "t2i",
+            "controlnet",
+        ],
         default=None,
-        help="lcm_graph (~60 FPS, best quality), sdturbo_graph (~63 FPS), sdturbo (~27 FPS), t2i (~27 FPS), controlnet (~20 FPS)",
+        help="ip_adapter (~6-8 FPS, best character), lcm_graph (~60 FPS), sdturbo_graph (~63 FPS), sdturbo (~27 FPS), t2i (~27 FPS), controlnet (~20 FPS)",
     )
     p.add_argument(
         "--size",
@@ -138,6 +145,12 @@ def parse_args():
         type=float,
         default=None,
         help="ControlNet conditioning scale (0.5=weak, 1.5=strong pose guide, default: 1.5)",
+    )
+    p.add_argument(
+        "--ip-scale",
+        type=float,
+        default=None,
+        help="IP-Adapter scale (0.3=light, 0.5=balanced, 0.7=strong character, default: 0.5)",
     )
     return p.parse_args()
 
@@ -233,6 +246,8 @@ def main() -> None:
         cfg.img2img_input = "reference"
     if args.cn_scale is not None:
         cfg.controlnet_conditioning_scale = args.cn_scale
+    if args.ip_scale is not None:
+        cfg.ip_adapter_scale = args.ip_scale
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
@@ -260,7 +275,13 @@ def main() -> None:
         detect_hands=cfg.detect_hands,
     )
     # Select engine backend from config
-    if cfg.engine_backend == "lcm_graph":
+    if cfg.engine_backend == "ip_adapter":
+        from src.diffusion_engine_ip_adapter import DiffusionEngineIPAdapter
+
+        engine = DiffusionEngineIPAdapter(
+            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
+        )
+    elif cfg.engine_backend == "lcm_graph":
         from src.diffusion_engine_lcm_graph import ANIME_MODEL_ID
 
         engine = DiffusionEngineLCMGraph(

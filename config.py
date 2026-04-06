@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     # Input: int for webcam index (e.g. 0), str for video file path
-    video_source: str = "assets/00_source/test_input.mp4"
+    video_source: str = "assets/test_input.mp4"
 
     # Resolution presets (sdturbo_graph backend, RTX 5070 Ti):
     #   256x256 -> ~124 FPS  (fast, lower quality)
@@ -21,12 +21,13 @@ class Config:
     output_height: int = 384
 
     # Diffusion backend:
-    #   "lcm_graph"     -- KohakuV2 + LCM-LoRA + CUDA graph (~73 FPS @ 384, best quality)
+    #   "ip_adapter"    -- IP-Adapter + ControlNet + LCM (~6-8 FPS, best character consistency)
+    #   "lcm_graph"     -- KohakuV2 + LCM-LoRA + CUDA graph (~73 FPS @ 384, best speed)
     #   "sdturbo_graph" -- SD-Turbo + T2I-Adapter + CUDA graph (~73 FPS @ 384)
     #   "sdturbo"       -- SD-Turbo + T2I-Adapter eager (~25 FPS @ 384)
     #   "t2i"           -- LCM + T2I-Adapter (~25 FPS @ 384)
     #   "controlnet"    -- LCM + ControlNet  (~19 FPS @ 384)
-    engine_backend: str = "lcm_graph"
+    engine_backend: str = "ip_adapter"
 
     # Anime model for lcm_graph backend (any SD1.5-compatible HuggingFace model)
     # Good options:
@@ -95,7 +96,7 @@ class Config:
 
     # Reference character image for img2img_input="reference"
     # The character's appearance is preserved; only pose changes via ControlNet/T2I-Adapter
-    reference_image: str = "assets/00_source/reference.png"
+    reference_image: str = "assets/reference.png"
 
     # Control map jitter threshold: skip regeneration if ctrl diff < this value
     #   0.0 = always regenerate (no filtering)
@@ -107,6 +108,12 @@ class Config:
     #   1.0 = default
     #   1.5-2.0 = strong pose guide (recommended for reference img2img)
     controlnet_conditioning_scale: float = 1.5
+
+    # IP-Adapter: character appearance preservation via CLIP image embeddings
+    #   Scale controls how strongly the reference image influences generation
+    #   0.3 = light hint, 0.5 = balanced (recommended), 0.7 = strong preservation
+    ip_adapter_scale: float = 0.5
+    ip_adapter_weight: str = "ip-adapter-plus_sd15.bin"
 
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
