@@ -126,7 +126,12 @@ def parse_args():
         "--strength",
         type=float,
         default=None,
-        help="img2img feedback strength (0.0=frozen, 1.0=no feedback, default: 0.7)",
+        help="img2img feedback strength (0.0=frozen, 1.0=no feedback, default: 0.5)",
+    )
+    p.add_argument(
+        "--reference",
+        default=None,
+        help="Reference character image for img2img (default: config.reference_image)",
     )
     return p.parse_args()
 
@@ -217,6 +222,9 @@ def main() -> None:
         cfg.temporal_blend = max(0.0, min(1.0, args.temporal))
     if args.strength is not None:
         cfg.img2img_strength = max(0.0, min(1.0, args.strength))
+    if args.reference is not None:
+        cfg.reference_image = args.reference
+        cfg.img2img_input = "reference"
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")

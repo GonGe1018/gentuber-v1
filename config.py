@@ -88,9 +88,14 @@ class Config:
     img2img_strength: float = 0.5
 
     # img2img input source:
-    #   "camera" = encode camera frame via VAE, then partial denoise (StreamDiffusion style)
-    #   "noise"  = start from pure noise with T2I-Adapter pose guide (legacy)
-    img2img_input: str = "camera"
+    #   "reference" = encode a fixed character image, denoise with pose guide (recommended)
+    #   "camera"    = encode camera frame via VAE each frame (StreamDiffusion style)
+    #   "noise"     = start from pure noise with T2I-Adapter pose guide (legacy)
+    img2img_input: str = "reference"
+
+    # Reference character image for img2img_input="reference"
+    # The character's appearance is preserved; only pose changes via ControlNet/T2I-Adapter
+    reference_image: str = "assets/00_source/reference.png"
 
     # Control map jitter threshold: skip regeneration if ctrl diff < this value
     #   0.0 = always regenerate (no filtering)

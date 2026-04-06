@@ -59,6 +59,7 @@ class DiffusionEngine:
         device = cfg.device
 
         self._use_source = getattr(cfg, "img2img_input", "noise") == "camera"
+        self._use_reference = getattr(cfg, "img2img_input", "noise") == "reference"
         self._strength = getattr(cfg, "img2img_strength", 0.5)
 
         print("[DiffusionEngine] Loading ControlNet …")
@@ -68,14 +69,15 @@ class DiffusionEngine:
         )
 
         print("[DiffusionEngine] Loading base pipeline …")
-        if self._use_source:
+        if self._use_source or self._use_reference:
             pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
                 cfg.base_model_id,
                 controlnet=controlnet,
                 torch_dtype=dtype,
                 safety_checker=None,
             )
-            print(f"[DiffusionEngine] Source-guided img2img: strength={self._strength}")
+            mode = "reference" if self._use_reference else "camera"
+            print(f"[DiffusionEngine] img2img mode={mode}, strength={self._strength}")
         else:
             pipe = StableDiffusionControlNetPipeline.from_pretrained(
                 cfg.base_model_id,
@@ -149,6 +151,37 @@ class DiffusionEngine:
             )
         self._transfer_stream = torch.cuda.Stream()
 
+        # Pre-encode reference image if configured
+        self._ref_tensor = None
+        if self._use_reference:
+            ref_path = getattr(cfg, "reference_image", "")
+            if ref_path:
+                import cv2 as _cv2
+
+                ref_bgr = _cv2.imread(ref_path)
+                if ref_bgr is None:
+                    print(
+                        f"[DiffusionEngine] WARNING: cannot read reference: {ref_path}"
+                    )
+                    self._use_reference = False
+                else:
+                    ref_rgb = _cv2.cvtColor(ref_bgr, _cv2.COLOR_BGR2RGB)
+                    ref_rgb = _cv2.resize(ref_rgb, (W, H))
+                    # Normalize to [0, 1] for img2img pipeline input
+                    self._ref_tensor = (
+                        torch.from_numpy(ref_rgb)
+                        .float()
+                        .div(255.0)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .to(
+                            device=device,
+                            dtype=dtype,
+                            memory_format=torch.channels_last,
+                        )
+                    )
+                    print(f"[DiffusionEngine] Reference cached: {ref_path}")
+
         # Warmup: run several inferences so cudnn.benchmark finishes tuning
         print("[DiffusionEngine] Warming up (cudnn tuning) ...")
         dummy = torch.zeros((1, 3, H, W), dtype=dtype, device=device).to(
@@ -156,13 +189,13 @@ class DiffusionEngine:
         )
         # img2img needs enough steps so that steps*strength >= 1
         warmup_steps = cfg.num_inference_steps
-        if self._use_source:
+        if self._use_source or self._use_reference:
             import math
 
             warmup_steps = max(warmup_steps, math.ceil(1.0 / self._strength))
         with torch.inference_mode():
             for _ in range(8):
-                if self._use_source:
+                if self._use_source or self._use_reference:
                     pipe(
                         prompt_embeds=self._prompt_embeds,
                         negative_prompt_embeds=self._neg_embeds,
@@ -283,7 +316,9 @@ class DiffusionEngine:
 
             # ── Upload source frame if available ──────────────────────────
             src_tensor = None
-            if self._use_source and source_map is not None:
+            if self._use_reference and self._ref_tensor is not None:
+                src_tensor = self._ref_tensor
+            elif self._use_source and source_map is not None:
                 self._pinned_src[0].copy_(
                     torch.from_numpy(source_map), non_blocking=False
                 )

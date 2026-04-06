@@ -141,6 +141,42 @@ class DiffusionEngineLCMGraph:
         self._timesteps = self._pipe.scheduler.timesteps.cpu()
         self._sigma_0 = float(self._pipe.scheduler.init_noise_sigma)
 
+        # Pre-encode reference image if configured
+        self._ref_latent = None
+        if getattr(cfg, "img2img_input", "noise") == "reference":
+            ref_path = getattr(cfg, "reference_image", "")
+            if ref_path:
+                import cv2 as _cv2
+
+                ref_bgr = _cv2.imread(ref_path)
+                if ref_bgr is None:
+                    print(
+                        f"[LCMGraph] WARNING: cannot read reference image: {ref_path}"
+                    )
+                else:
+                    ref_rgb = _cv2.cvtColor(ref_bgr, _cv2.COLOR_BGR2RGB)
+                    ref_rgb = _cv2.resize(ref_rgb, (W, H))
+                    # Normalize to [-1, 1], CHW float16
+                    ref_t = (
+                        torch.from_numpy(ref_rgb)
+                        .float()
+                        .div(127.5)
+                        .sub(1.0)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .to(
+                            device=device,
+                            dtype=dtype,
+                            memory_format=torch.channels_last,
+                        )
+                    )
+                    with torch.inference_mode():
+                        self._ref_latent = pipe.vae.encode(ref_t).latents
+                    print(
+                        f"[LCMGraph] Reference latent cached: {ref_path} "
+                        f"-> {self._ref_latent.shape}"
+                    )
+
         print("[LCMGraph] Ready.")
 
     def _build_graph(self) -> None:
@@ -283,8 +319,12 @@ class DiffusionEngineLCMGraph:
         # Control map jitter threshold — skip generation if change is below this
         ctrl_threshold = getattr(cfg, "ctrl_jitter_threshold", 0.015)
 
-        # Source-guided img2img mode (StreamDiffusion style)
-        use_source_img2img = getattr(cfg, "img2img_input", "noise") == "camera"
+        # img2img mode flags
+        img2img_mode = getattr(cfg, "img2img_input", "noise")
+        use_source_img2img = img2img_mode == "camera"
+        use_reference_img2img = (
+            img2img_mode == "reference" and self._ref_latent is not None
+        )
 
         # Pinned + GPU buffers for source frame upload
         if use_source_img2img:
@@ -398,9 +438,11 @@ class DiffusionEngineLCMGraph:
         if use_fixed_noise:
             fixed_noise = noise_ring[0]
 
-        # Precompute alpha values for img2img (both source and feedback paths)
+        # Precompute alpha values for img2img (source, reference, and feedback paths)
         img2img_strength = getattr(cfg, "img2img_strength", 0.5)
-        use_img2img = img2img_strength < 1.0 or use_source_img2img
+        use_img2img = (
+            img2img_strength < 1.0 or use_source_img2img or use_reference_img2img
+        )
         prev_x0 = None  # for feedback path only
         has_prev_frame = False
 
@@ -482,6 +524,51 @@ class DiffusionEngineLCMGraph:
                     )[0]
 
                     # epsilon → x0 in float32
+                    x0 = (
+                        noised.float()
+                        - sqrt_one_minus_alpha_fb.float() * noise_pred.float()
+                    ) / sqrt_alpha_fb.float()
+                    x0_half = x0.to(dtype)
+
+                    decoded = pipe.vae.decode(
+                        x0_half / pipe.vae.config.scaling_factor,
+                        return_dict=False,
+                    )[0]
+
+                    copy_stream.wait_stream(torch.cuda.current_stream())
+                    with torch.cuda.stream(copy_stream):
+                        frame_gpu = (decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
+                        pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
+                    has_prev_frame = True
+
+                elif use_reference_img2img:
+                    # ── Reference img2img (fixed character, pose changes) ──
+                    if ctrl_changed:
+                        upload_ctrl(next_ctrl, next_pinned, next_gpu)
+                        torch.cuda.current_stream().wait_stream(self._transfer_stream)
+                        self._static_ctrl.copy_(next_gpu)
+                        next_pinned, next_gpu = (
+                            (pinned_A, gpu_A)
+                            if next_gpu is gpu_B
+                            else (pinned_B, gpu_B)
+                        )
+                    last_ctrl = next_ctrl
+
+                    # Forward diffuse cached ref_latent
+                    noised = (
+                        sqrt_alpha_fb * self._ref_latent
+                        + sqrt_one_minus_alpha_fb * noise
+                    ).to(memory_format=torch.channels_last)
+
+                    adapter_state = self._adapter(self._static_ctrl)
+                    noise_pred = pipe.unet(
+                        noised,
+                        t_feedback_tensor,
+                        self._prompt_embeds,
+                        down_intrablock_additional_residuals=adapter_state,
+                        return_dict=False,
+                    )[0]
+
                     x0 = (
                         noised.float()
                         - sqrt_one_minus_alpha_fb.float() * noise_pred.float()
