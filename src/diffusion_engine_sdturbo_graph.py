@@ -160,7 +160,6 @@ class DiffusionEngineSDTurboGraph:
                 )[0]
                 # SD-Turbo 1-step: denoised = noise_pred (x0 prediction)
                 _denoised = self._static_unet_out / pipe.vae.config.scaling_factor
-                # Store x0 for temporal latent blending (unused now, kept for future)
                 self._static_decoded = pipe.vae.decode(_denoised, return_dict=False)[0]
         torch.cuda.synchronize()
         print(f"[GraphEngine] Graph captured (UNet + VAE, {lH}x{lW} latents)")
