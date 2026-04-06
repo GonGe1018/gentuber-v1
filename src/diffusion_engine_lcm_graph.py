@@ -309,7 +309,8 @@ class DiffusionEngineLCMGraph:
                 gpu_src.copy_(pinned_src, non_blocking=True)
 
         def get_queue_item(last_ctrl, last_source):
-            """Drain queue, return (ctrl, source, ctrl_changed, source_changed)."""
+            """Drain queue, return (ctrl, source, ctrl_changed, source_changed).
+            If queue is empty, block briefly to pace output to input rate."""
             item = None
             try:
                 while True:
@@ -320,8 +321,17 @@ class DiffusionEngineLCMGraph:
                     item = raw
             except queue.Empty:
                 pass
+
+            # If nothing was in the queue, block and wait for next input
             if item is None:
-                return last_ctrl, last_source, False, False
+                try:
+                    raw = self.in_queue.get(timeout=0.5)
+                    if raw is None:
+                        self._running = False
+                        return None, None, False, False
+                    item = raw
+                except queue.Empty:
+                    return last_ctrl, last_source, False, False
 
             # Unpack tuple or plain ctrl
             if isinstance(item, tuple):

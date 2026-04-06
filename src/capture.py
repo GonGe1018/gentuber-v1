@@ -112,10 +112,20 @@ class VideoCapture:
     # ── internal ────────────────────────────────────────────────────────────
 
     def _reader(self) -> None:
+        # For video files, pace reads to match the source FPS
+        is_file = isinstance(self.source, str)
+        if is_file:
+            src_fps = self._cap.get(cv2.CAP_PROP_FPS) or 30.0
+            frame_interval = 1.0 / src_fps
+        else:
+            frame_interval = 0.0  # webcam: read as fast as possible
+
         while self._running:
+            t0 = time.perf_counter()
+
             ok, frame = self._cap.read()
             if not ok:
-                if self.loop and isinstance(self.source, str):
+                if self.loop and is_file:
                     self._cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
                 else:
@@ -129,3 +139,10 @@ class VideoCapture:
                 )
 
             self.buffer.put(frame)
+
+            # Sleep to match source FPS (video files only)
+            if frame_interval > 0:
+                elapsed = time.perf_counter() - t0
+                sleep_time = frame_interval - elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
