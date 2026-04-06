@@ -147,7 +147,8 @@ class DiffusionEngineSDTurbo:
                     if item is None:
                         self._running = False
                         break
-                    control_map = item
+                    # Support (ctrl, source) tuple from camera mode
+                    control_map = item[0] if isinstance(item, tuple) else item
             except queue.Empty:
                 pass
 
@@ -156,10 +157,11 @@ class DiffusionEngineSDTurbo:
 
             if control_map is None:
                 try:
-                    control_map = self.in_queue.get(timeout=0.05)
-                    if control_map is None:
+                    item = self.in_queue.get(timeout=0.05)
+                    if item is None:
                         self._running = False
                         break
+                    control_map = item[0] if isinstance(item, tuple) else item
                 except queue.Empty:
                     continue
 

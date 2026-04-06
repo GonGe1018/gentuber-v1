@@ -248,7 +248,8 @@ class DiffusionEngineSDTurboGraph:
                     if item is None:
                         self._running = False
                         return None, False
-                    ctrl = item
+                    # Support (ctrl, source) tuple from camera mode
+                    ctrl = item[0] if isinstance(item, tuple) else item
             except queue.Empty:
                 pass
             if ctrl is None:
@@ -265,10 +266,11 @@ class DiffusionEngineSDTurboGraph:
         first_ctrl = None
         while first_ctrl is None and self._running:
             try:
-                first_ctrl = self.in_queue.get(timeout=0.1)
-                if first_ctrl is None:
+                item = self.in_queue.get(timeout=0.1)
+                if item is None:
                     self._running = False
                     return
+                first_ctrl = item[0] if isinstance(item, tuple) else item
             except queue.Empty:
                 continue
         if not self._running:
