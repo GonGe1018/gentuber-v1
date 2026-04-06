@@ -160,8 +160,7 @@ class DiffusionEngineSDTurboGraph:
                 )[0]
                 # SD-Turbo 1-step: denoised = noise_pred (x0 prediction)
                 _denoised = self._static_unet_out / pipe.vae.config.scaling_factor
-                # Store x0 for temporal latent blending (next frame reuses this)
-                self._static_x0 = self._static_unet_out.clone()
+                # Store x0 for temporal latent blending (unused now, kept for future)
                 self._static_decoded = pipe.vae.decode(_denoised, return_dict=False)[0]
         torch.cuda.synchronize()
         print(f"[GraphEngine] Graph captured (UNet + VAE, {lH}x{lW} latents)")
@@ -274,28 +273,23 @@ class DiffusionEngineSDTurboGraph:
         next_pinned, next_gpu = pinned_B, gpu_B
         next_ctrl_ready = False
 
-        # Temporal latent blending state
+        # Temporal coherence: when enabled, use a single fixed noise
         temporal_blend = getattr(cfg, "temporal_blend", 0.5)
-        has_prev_x0 = False
+        use_fixed_noise = temporal_blend < 1.0
+        if use_fixed_noise:
+            fixed_noise = noise_ring[0]
 
         while self._running:
             with torch.inference_mode():
                 # ── Prepare noisy latents ─────────────────────────────────
-                noise = noise_ring[noise_idx]
-                noise_idx = (noise_idx + 1) % NOISE_RING
-                # Temporal latent blending: mix previous x0 with new noise
-                if has_prev_x0:
-                    blended = (
-                        temporal_blend * (noise * sigma)
-                        + (1.0 - temporal_blend) * self._static_x0
-                    )
-                    self._static_latents.copy_(
-                        blended.to(memory_format=torch.channels_last)
-                    )
+                if use_fixed_noise:
+                    noise = fixed_noise
                 else:
-                    self._static_latents.copy_(
-                        (noise * sigma).to(memory_format=torch.channels_last)
-                    )
+                    noise = noise_ring[noise_idx]
+                    noise_idx = (noise_idx + 1) % NOISE_RING
+                self._static_latents.copy_(
+                    (noise * sigma).to(memory_format=torch.channels_last)
+                )
                 # _static_timestep is constant (999) — no fill needed
 
                 # ── Prefetch next control map (reuse last if pose not ready) ─
@@ -307,7 +301,6 @@ class DiffusionEngineSDTurboGraph:
 
                 # ── Replay CUDA graph (adapter + UNet + VAE) ─────────────
                 self._graph.replay()
-                has_prev_x0 = True
 
                 # ── Swap in prefetched ctrl for next iteration ────────────
                 if next_ctrl_ready:

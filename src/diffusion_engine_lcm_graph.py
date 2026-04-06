@@ -207,8 +207,6 @@ class DiffusionEngineLCMGraph:
                     * self._static_noise_pred.float()
                 ) / self._sqrt_alpha.float()
                 _x0_half = _x0.to(dtype)
-                # Store x0 for temporal latent blending (next frame reuses this)
-                self._static_x0 = _x0_half.clone()
                 self._static_decoded = pipe.vae.decode(
                     _x0_half / pipe.vae.config.scaling_factor, return_dict=False
                 )[0]
@@ -318,33 +316,30 @@ class DiffusionEngineLCMGraph:
         next_pinned, next_gpu = pinned_B, gpu_B
         next_ctrl_ready = False
 
-        # Temporal latent blending state
+        # Temporal coherence: when enabled, use a single fixed noise
+        # so only pose conditioning changes between frames.
         temporal_blend = getattr(cfg, "temporal_blend", 0.5)
-        has_prev_x0 = False
-        prev_x0_eager = None  # for multi-step path
+        use_fixed_noise = temporal_blend < 1.0
+        if use_fixed_noise:
+            fixed_noise = noise_ring[0]
 
         while self._running:
             with torch.inference_mode():
-                noise = noise_ring[noise_idx]
-                noise_idx = (noise_idx + 1) % NOISE_RING
+                if use_fixed_noise:
+                    noise = fixed_noise
+                else:
+                    noise = noise_ring[noise_idx]
+                    noise_idx = (noise_idx + 1) % NOISE_RING
 
                 if steps == 1:
                     # ── Fast path: CUDA graph ─────────────────────────────
-                    # Temporal latent blending: mix previous x0 with new noise
-                    # so consecutive frames share structure instead of being
-                    # generated from completely independent noise.
-                    if has_prev_x0:
-                        blended = (
-                            temporal_blend * noise
-                            + (1.0 - temporal_blend) * self._static_x0
-                        )
-                        self._static_latents.copy_(
-                            blended.to(memory_format=torch.channels_last)
-                        )
-                    else:
-                        self._static_latents.copy_(
-                            noise.to(memory_format=torch.channels_last)
-                        )
+                    # With fixed noise + pose conditioning change = smooth transitions.
+                    # Temporal blend controls how much new random noise to mix in:
+                    #   0.0 = fully fixed noise (most stable)
+                    #   1.0 = fully random noise each frame (no coherence)
+                    self._static_latents.copy_(
+                        noise.to(memory_format=torch.channels_last)
+                    )
                     # _static_timestep is constant — no fill needed
 
                     next_ctrl = get_control_map(last_ctrl)
@@ -354,7 +349,6 @@ class DiffusionEngineLCMGraph:
                         last_ctrl = next_ctrl
 
                     self._graph.replay()
-                    has_prev_x0 = True
 
                     if next_ctrl_ready:
                         torch.cuda.current_stream().wait_stream(self._transfer_stream)
@@ -394,13 +388,7 @@ class DiffusionEngineLCMGraph:
                     pipe.scheduler.set_timesteps(steps, device=device)
 
                     # Temporal latent blending for multi-step path
-                    if has_prev_x0:
-                        latents = (
-                            temporal_blend * noise * sigma_0
-                            + (1.0 - temporal_blend) * prev_x0_eager
-                        )
-                    else:
-                        latents = noise * sigma_0
+                    latents = noise * sigma_0
                     adapter_state = self._adapter(self._static_ctrl)
 
                     for t in timesteps:
@@ -414,10 +402,6 @@ class DiffusionEngineLCMGraph:
                         latents = pipe.scheduler.step(
                             noise_pred, t, latents, return_dict=False
                         )[0]
-
-                    # Store denoised latent for next frame blending
-                    prev_x0_eager = latents.detach()
-                    has_prev_x0 = True
 
                     decoded = pipe.vae.decode(
                         latents / pipe.vae.config.scaling_factor, return_dict=False
