@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     # Input: int for webcam index (e.g. 0), str for video file path
-    video_source: str = "assets/test_input.mp4"
+    video_source: str = "assets/00_source/test_input.mp4"
 
     # Resolution presets (sdturbo_graph backend, RTX 5070 Ti):
     #   256x256 -> ~124 FPS  (fast, lower quality)

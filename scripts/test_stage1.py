@@ -20,7 +20,7 @@ import numpy as np
 
 from src.pose_extractor import PoseExtractor
 
-INPUT = "assets/test_input.mp4"
+INPUT = "assets/00_source/test_input.mp4"
 OUTPUT = Path("assets/stage1_skeleton.mp4")
 WIDTH, HEIGHT = 512, 512
 
