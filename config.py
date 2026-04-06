@@ -81,6 +81,12 @@ class Config:
     #   0.5 = recommended balance (smooth transitions, still responsive to pose)
     temporal_blend: float = 0.5
 
+    # img2img feedback strength: how much noise to add to previous frame's latent
+    #   0.0 = no noise (frozen image, ignores new pose)
+    #   1.0 = full noise (no feedback, same as txt2img)
+    #   0.5-0.7 = recommended (preserves previous structure, adapts to new pose)
+    img2img_strength: float = 0.7
+
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"

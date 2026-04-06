@@ -207,6 +207,8 @@ class DiffusionEngineLCMGraph:
                     * self._static_noise_pred.float()
                 ) / self._sqrt_alpha.float()
                 _x0_half = _x0.to(dtype)
+                # Store x0 for img2img feedback (next frame reuses this)
+                self._static_x0 = _x0_half.clone()
                 self._static_decoded = pipe.vae.decode(
                     _x0_half / pipe.vae.config.scaling_factor, return_dict=False
                 )[0]
@@ -323,6 +325,28 @@ class DiffusionEngineLCMGraph:
         if use_fixed_noise:
             fixed_noise = noise_ring[0]
 
+        # img2img feedback: reuse previous frame's denoised latent
+        img2img_strength = getattr(cfg, "img2img_strength", 1.0)
+        use_img2img = img2img_strength < 1.0
+        prev_x0 = None  # will be set after first frame
+
+        if use_img2img:
+            # Precompute alpha values for the feedback timestep
+            t_feedback = int(999 * img2img_strength)
+            t_feedback = max(1, min(999, t_feedback))
+            alpha_fb = pipe.scheduler.alphas_cumprod[t_feedback].to(
+                device=device, dtype=dtype
+            )
+            sqrt_alpha_fb = alpha_fb.sqrt()
+            sqrt_one_minus_alpha_fb = (1.0 - alpha_fb).sqrt()
+            t_feedback_tensor = torch.tensor(
+                [t_feedback], dtype=torch.long, device=device
+            )
+            print(
+                f"[LCMGraph] img2img feedback: strength={img2img_strength}, "
+                f"t={t_feedback}, alpha={alpha_fb.item():.4f}"
+            )
+
         while self._running:
             with torch.inference_mode():
                 if use_fixed_noise:
@@ -331,7 +355,53 @@ class DiffusionEngineLCMGraph:
                     noise = noise_ring[noise_idx]
                     noise_idx = (noise_idx + 1) % NOISE_RING
 
-                if steps == 1:
+                if use_img2img and prev_x0 is not None:
+                    # ── img2img feedback path (eager) ─────────────────────
+                    # Forward diffuse prev_x0 to t_feedback:
+                    #   noised = sqrt(α_t)*x0 + sqrt(1-α_t)*noise
+                    noised = (
+                        sqrt_alpha_fb * prev_x0 + sqrt_one_minus_alpha_fb * noise
+                    ).to(memory_format=torch.channels_last)
+
+                    next_ctrl = get_control_map(last_ctrl)
+                    if next_ctrl is not None:
+                        upload_ctrl(next_ctrl, next_pinned, next_gpu)
+                        torch.cuda.current_stream().wait_stream(self._transfer_stream)
+                        self._static_ctrl.copy_(next_gpu)
+                        next_pinned, next_gpu = (
+                            (pinned_A, gpu_A)
+                            if next_gpu is gpu_B
+                            else (pinned_B, gpu_B)
+                        )
+                        last_ctrl = next_ctrl
+
+                    adapter_state = self._adapter(self._static_ctrl)
+                    noise_pred = pipe.unet(
+                        noised,
+                        t_feedback_tensor,
+                        self._prompt_embeds,
+                        down_intrablock_additional_residuals=adapter_state,
+                        return_dict=False,
+                    )[0]
+
+                    # epsilon -> x0 in float32
+                    x0 = (
+                        noised.float()
+                        - sqrt_one_minus_alpha_fb.float() * noise_pred.float()
+                    ) / sqrt_alpha_fb.float()
+                    prev_x0 = x0.to(dtype)
+
+                    decoded = pipe.vae.decode(
+                        prev_x0 / pipe.vae.config.scaling_factor,
+                        return_dict=False,
+                    )[0]
+
+                    copy_stream.wait_stream(torch.cuda.current_stream())
+                    with torch.cuda.stream(copy_stream):
+                        frame_gpu = (decoded[0].permute(1, 2, 0).float() + 1.0) * 0.5
+                        pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
+
+                elif steps == 1:
                     # ── Fast path: CUDA graph ─────────────────────────────
                     # With fixed noise + pose conditioning change = smooth transitions.
                     # Temporal blend controls how much new random noise to mix in:
@@ -349,6 +419,10 @@ class DiffusionEngineLCMGraph:
                         last_ctrl = next_ctrl
 
                     self._graph.replay()
+
+                    # Store x0 for img2img feedback on next frame
+                    if use_img2img:
+                        prev_x0 = self._static_x0.clone()
 
                     if next_ctrl_ready:
                         torch.cuda.current_stream().wait_stream(self._transfer_stream)
