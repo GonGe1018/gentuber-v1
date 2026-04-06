@@ -11,11 +11,8 @@ __pycache__/
 .venv/
 
 # Assets (generated)
-assets/test_input.mp4
-assets/stage*.mp4
-assets/stage*.png
-assets/*.mp4
-assets/*.png
+assets/**/*.mp4
+assets/**/*.png
 assets/models/
 
 # IDE
