@@ -308,6 +308,7 @@ def main() -> None:
     print("\n[Main] Pipeline running -- press 'q' in the window to quit.\n")
 
     last_skeleton: np.ndarray | None = None
+    last_frame: np.ndarray | None = None  # keep last good frame to avoid flicker
 
     try:
         while True:
@@ -323,14 +324,18 @@ def main() -> None:
                 try:
                     frame_rgb = out_queue.get(timeout=0.05)
                 except queue.Empty:
-                    if last_skeleton is not None:
-                        bgr = cv2.cvtColor(last_skeleton, cv2.COLOR_RGB2BGR)
-                        cv2.imshow(cfg.window_title, bgr)
-                    if cv2.waitKey(1) & 0xFF == ord("q"):
-                        break
+                    # No new frame — re-show last frame to avoid flicker
+                    if last_frame is not None:
+                        alive = renderer.show(last_frame, skeleton_rgb=last_skeleton)
+                        if not alive:
+                            break
+                    else:
+                        if cv2.waitKey(1) & 0xFF == ord("q"):
+                            break
                     continue
 
             frame_rgb = interp.blend(frame_rgb)
+            last_frame = frame_rgb
 
             # Get latest skeleton for overlay (HWC uint8 from skeleton_queue)
             try:
