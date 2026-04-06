@@ -87,6 +87,11 @@ class Config:
     #   0.5-0.7 = recommended (preserves previous structure, adapts to new pose)
     img2img_strength: float = 0.7
 
+    # Control map jitter threshold: skip regeneration if ctrl diff < this value
+    #   0.0 = always regenerate (no filtering)
+    #   0.015 = filter MediaPipe jitter (static pose → identical frames)
+    ctrl_jitter_threshold: float = 0.015
+
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"

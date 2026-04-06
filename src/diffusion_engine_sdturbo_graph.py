@@ -15,6 +15,7 @@ import threading
 from typing import Optional
 
 import cv2
+import numpy as np
 import torch
 from diffusers import (
     AutoencoderTiny,
@@ -228,6 +229,9 @@ class DiffusionEngineSDTurboGraph:
         t = int(pipe.scheduler.timesteps[0].cpu())
         sigma = float(pipe.scheduler.sigmas[0])
 
+        # Control map jitter threshold — skip generation if change is below this
+        ctrl_threshold = getattr(cfg, "ctrl_jitter_threshold", 0.015)
+
         def upload_ctrl(ctrl_map, pinned, gpu_buf):
             """Upload CHW float16 control map to GPU on transfer_stream."""
             pinned[0].copy_(torch.from_numpy(ctrl_map), non_blocking=False)
@@ -243,12 +247,19 @@ class DiffusionEngineSDTurboGraph:
                     item = self.in_queue.get_nowait()
                     if item is None:
                         self._running = False
-                        return None
+                        return None, False
                     ctrl = item
             except queue.Empty:
                 pass
-            # Reuse last frame if pose thread hasn't produced a new one yet
-            return ctrl if ctrl is not None else last_ctrl
+            if ctrl is None:
+                return last_ctrl, False
+            # Skip if control map barely changed (MediaPipe jitter)
+            diff = float(
+                np.abs(ctrl.astype(np.float32) - last_ctrl.astype(np.float32)).mean()
+            )
+            if diff < ctrl_threshold:
+                return last_ctrl, False
+            return ctrl, True
 
         # Bootstrap: wait for first frame (can't reuse nothing)
         first_ctrl = None
@@ -278,6 +289,8 @@ class DiffusionEngineSDTurboGraph:
         if use_fixed_noise:
             fixed_noise = noise_ring[0]
 
+        has_prev_frame = False
+
         while self._running:
             with torch.inference_mode():
                 # ── Prepare noisy latents ─────────────────────────────────
@@ -286,37 +299,43 @@ class DiffusionEngineSDTurboGraph:
                 else:
                     noise = noise_ring[noise_idx]
                     noise_idx = (noise_idx + 1) % NOISE_RING
-                self._static_latents.copy_(
-                    (noise * sigma).to(memory_format=torch.channels_last)
-                )
-                # _static_timestep is constant (999) — no fill needed
 
-                # ── Prefetch next control map (reuse last if pose not ready) ─
-                next_ctrl = get_control_map(last_ctrl)
-                if next_ctrl is not None:
-                    upload_ctrl(next_ctrl, next_pinned, next_gpu)
-                    next_ctrl_ready = True
-                    last_ctrl = next_ctrl
+                next_ctrl, ctrl_changed = get_control_map(last_ctrl)
+                if next_ctrl is None:
+                    break
 
-                # ── Replay CUDA graph (adapter + UNet + VAE) ─────────────
-                self._graph.replay()
-
-                # ── Swap in prefetched ctrl for next iteration ────────────
-                if next_ctrl_ready:
-                    torch.cuda.current_stream().wait_stream(self._transfer_stream)
-                    self._static_ctrl.copy_(next_gpu)
-                    next_pinned, next_gpu = (
-                        (pinned_A, gpu_A) if next_gpu is gpu_B else (pinned_B, gpu_B)
+                # If pose didn't change and we have a frame, skip replay
+                if not ctrl_changed and has_prev_frame:
+                    pass  # reuse pinned_out from last iteration
+                else:
+                    self._static_latents.copy_(
+                        (noise * sigma).to(memory_format=torch.channels_last)
                     )
-                    next_ctrl_ready = False
 
-                # ── D2H: launch on copy_stream, CPU syncs after inference_mode ─
-                copy_stream.wait_stream(torch.cuda.current_stream())
-                with torch.cuda.stream(copy_stream):
-                    frame_gpu = (
-                        self._static_decoded[0].permute(1, 2, 0).float() + 1.0
-                    ) * 0.5
-                    pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
+                    if ctrl_changed:
+                        upload_ctrl(next_ctrl, next_pinned, next_gpu)
+                        next_ctrl_ready = True
+                        last_ctrl = next_ctrl
+
+                    self._graph.replay()
+
+                    if next_ctrl_ready:
+                        torch.cuda.current_stream().wait_stream(self._transfer_stream)
+                        self._static_ctrl.copy_(next_gpu)
+                        next_pinned, next_gpu = (
+                            (pinned_A, gpu_A)
+                            if next_gpu is gpu_B
+                            else (pinned_B, gpu_B)
+                        )
+                        next_ctrl_ready = False
+
+                    copy_stream.wait_stream(torch.cuda.current_stream())
+                    with torch.cuda.stream(copy_stream):
+                        frame_gpu = (
+                            self._static_decoded[0].permute(1, 2, 0).float() + 1.0
+                        ) * 0.5
+                        pinned_out.copy_(frame_gpu.clamp(0, 1), non_blocking=True)
+                    has_prev_frame = True
 
             copy_stream.synchronize()
             frame = cv2.convertScaleAbs(pinned_out.numpy(), alpha=255)
