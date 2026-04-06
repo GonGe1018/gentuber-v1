@@ -85,7 +85,12 @@ class Config:
     #   0.0 = no noise (frozen image, ignores new pose)
     #   1.0 = full noise (no feedback, same as txt2img)
     #   0.5-0.7 = recommended (preserves previous structure, adapts to new pose)
-    img2img_strength: float = 0.7
+    img2img_strength: float = 0.5
+
+    # img2img input source:
+    #   "camera" = encode camera frame via VAE, then partial denoise (StreamDiffusion style)
+    #   "noise"  = start from pure noise with T2I-Adapter pose guide (legacy)
+    img2img_input: str = "camera"
 
     # Control map jitter threshold: skip regeneration if ctrl diff < this value
     #   0.0 = always regenerate (no filtering)

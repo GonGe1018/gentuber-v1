@@ -137,6 +137,7 @@ def pose_worker(
     pose_queue: queue.Queue,
     stop_event: threading.Event,
     skeleton_queue: queue.Queue | None = None,
+    send_source: bool = False,
 ) -> None:
     while not stop_event.is_set():
         frame_bgr = capture.read(timeout=0.1)
@@ -146,12 +147,19 @@ def pose_worker(
         # Pre-process here (pose thread has spare capacity) to keep
         # the diffusion engine hot path free of numpy overhead
         ctrl_preprocessed = extractor.preprocess(control_map)
+
+        if send_source:
+            source_preprocessed = extractor.preprocess_source(frame_bgr)
+            item = (ctrl_preprocessed, source_preprocessed)
+        else:
+            item = ctrl_preprocessed
+
         if pose_queue.full():
             try:
                 pose_queue.get_nowait()
             except queue.Empty:
                 pass
-        pose_queue.put(ctrl_preprocessed)
+        pose_queue.put(item)
         # Keep latest raw HWC uint8 for skeleton overlay display
         if skeleton_queue is not None:
             if skeleton_queue.full():
@@ -274,6 +282,7 @@ def main() -> None:
     pose_thread = threading.Thread(
         target=pose_worker,
         args=(capture, extractor, pose_queue, stop_event, skeleton_queue),
+        kwargs={"send_source": getattr(cfg, "img2img_input", "noise") == "camera"},
         daemon=True,
         name="pose",
     )

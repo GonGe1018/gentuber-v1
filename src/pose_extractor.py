@@ -178,6 +178,8 @@ class PoseExtractor:
 
         # Pre-allocated float32 buffer for preprocess() — avoids per-call HWC alloc
         self._f32_buf = np.empty((height, width, 3), dtype=np.float32)
+        # Pre-allocated float32 buffer for preprocess_source()
+        self._src_f32_buf = np.empty((height, width, 3), dtype=np.float32)
 
     def process(self, bgr_frame: np.ndarray):
         rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
@@ -251,6 +253,24 @@ class PoseExtractor:
         """
         np.multiply(canvas, 1.0 / 255.0, out=self._f32_buf, casting="unsafe")
         return self._f32_buf.transpose(2, 0, 1).astype(np.float16)
+
+    def preprocess_source(self, bgr_frame: np.ndarray) -> np.ndarray:
+        """
+        Pre-process a camera frame for VAE encode.
+
+        Converts BGR uint8 (H,W,3) -> CHW float16 [-1, 1].
+        Resizes to (self.width, self.height) if needed.
+
+        Returns
+        -------
+        np.ndarray  shape (3, H, W)  dtype float16
+        """
+        rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
+        if rgb.shape[0] != self.height or rgb.shape[1] != self.width:
+            rgb = cv2.resize(rgb, (self.width, self.height))
+        np.multiply(rgb, 1.0 / 127.5, out=self._src_f32_buf, casting="unsafe")
+        np.subtract(self._src_f32_buf, 1.0, out=self._src_f32_buf)
+        return self._src_f32_buf.transpose(2, 0, 1).astype(np.float16)
 
     def close(self) -> None:
         self._pose.close()
