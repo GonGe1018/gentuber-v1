@@ -209,8 +209,18 @@ class DiffusionEngineIPAdapter:
         cfg = self.cfg
         pipe = self._pipe
         torch.set_num_threads(2)
+        seed = getattr(cfg, "seed", 42)
         generator = torch.Generator(device=self._device).manual_seed(
-            getattr(cfg, "seed", 42)
+            seed if seed >= 0 else torch.randint(0, 2**31, (1,)).item()
+        )
+
+        # Fixed noise: same latent every frame → consistent style/details
+        lH, lW = self._H // 8, self._W // 8
+        fixed_latents = torch.randn(
+            (1, 4, lH, lW),
+            dtype=self._dtype,
+            device=self._device,
+            generator=generator,
         )
 
         copy_stream = torch.cuda.Stream()
@@ -285,7 +295,7 @@ class DiffusionEngineIPAdapter:
                     controlnet_conditioning_scale=self._cn_scale,
                     width=self._W,
                     height=self._H,
-                    generator=generator,
+                    latents=fixed_latents.clone(),
                     output_type="pt",
                 )
             gpu_frame = result.images
