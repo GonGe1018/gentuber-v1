@@ -49,13 +49,20 @@ class Config:
     guidance_scale: float = 1.0  # LCM works best at 1.0 (CFG-free)
 
     prompt: str = (
-        "masterpiece, best quality, anime girl, full body, "
-        "colorful outfit, white background, 2d illustration, "
-        "sharp focus, vibrant colors"
+        "1girl, solo, blue hair, long hair, straight hair, hair between eyes, "
+        "sailor collar, blue bow, pleated skirt, white thighhighs, "
+        "standing, full body, simple background, white background, "
+        "flat color, cel shading, anime coloring, clean lineart, "
+        "masterpiece, best quality, highres"
     )
     negative_prompt: str = (
-        "lowres, bad anatomy, bad hands, missing fingers, "
-        "blurry, low quality, realistic, 3d, photo, watermark"
+        "lowres, bad anatomy, bad hands, missing fingers, extra digits, "
+        "blurry, low quality, worst quality, normal quality, "
+        "realistic, 3d, photo, watermark, signature, text, "
+        "hair blowing, wind, floating hair, messy hair, hair movement, "
+        "glowing, lens flare, light particles, sparkle, bloom, "
+        "gradient background, detailed background, scenery, outdoors, "
+        "multiple girls, extra limbs, deformed, ugly, duplicate"
     )
 
     # Noise seed for reproducible output (42 = fixed, -1 = random each run)
