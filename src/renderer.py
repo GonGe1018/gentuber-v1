@@ -44,6 +44,7 @@ class Renderer:
         self,
         frame_rgb: np.ndarray,
         skeleton_rgb: np.ndarray | None = None,
+        source_rgb: np.ndarray | None = None,
     ) -> bool:
         # Rate cap — skip display if we're ahead of monitor refresh
         now = time.perf_counter()
@@ -81,7 +82,26 @@ class Renderer:
                 cv2.LINE_AA,
             )
 
-        bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
+        # Side-by-side: source (left) | generated (right)
+        if source_rgb is not None:
+            h, w = display.shape[:2]
+            src_resized = cv2.resize(source_rgb, (w, h))
+            # Add label to source
+            cv2.putText(
+                src_resized,
+                "Source",
+                (10, 28),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+                cv2.LINE_AA,
+            )
+            combined = np.hstack([src_resized, display])
+            bgr = cv2.cvtColor(combined, cv2.COLOR_RGB2BGR)
+        else:
+            bgr = cv2.cvtColor(display, cv2.COLOR_RGB2BGR)
+
         cv2.imshow(self.title, bgr)
 
         key = cv2.waitKey(1) & 0xFF

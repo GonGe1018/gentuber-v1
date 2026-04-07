@@ -174,6 +174,7 @@ def pose_worker(
     pose_queue: queue.Queue,
     stop_event: threading.Event,
     skeleton_queue: queue.Queue | None = None,
+    source_display_queue: queue.Queue | None = None,
     send_source: bool = False,
 ) -> None:
     while not stop_event.is_set():
@@ -181,8 +182,6 @@ def pose_worker(
         if frame_bgr is None:
             continue
         control_map, _ = extractor.process(frame_bgr)
-        # Pre-process here (pose thread has spare capacity) to keep
-        # the diffusion engine hot path free of numpy overhead
         ctrl_preprocessed = extractor.preprocess(control_map)
 
         if send_source:
@@ -197,6 +196,17 @@ def pose_worker(
             except queue.Empty:
                 pass
         pose_queue.put(item)
+
+        # Send original frame for side-by-side display
+        if source_display_queue is not None:
+            # Convert BGR to RGB for display
+            frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            if source_display_queue.full():
+                try:
+                    source_display_queue.get_nowait()
+                except queue.Empty:
+                    pass
+            source_display_queue.put(frame_rgb)
         # Keep latest raw HWC uint8 for skeleton overlay display
         if skeleton_queue is not None:
             if skeleton_queue.full():
@@ -325,9 +335,18 @@ def main() -> None:
     stop_event = threading.Event()
     capture.start()
 
+    source_display_queue = queue.Queue(maxsize=2)
+
     pose_thread = threading.Thread(
         target=pose_worker,
-        args=(capture, extractor, pose_queue, stop_event, skeleton_queue),
+        args=(
+            capture,
+            extractor,
+            pose_queue,
+            stop_event,
+            skeleton_queue,
+            source_display_queue,
+        ),
         kwargs={"send_source": getattr(cfg, "img2img_input", "noise") == "camera"},
         daemon=True,
         name="pose",
@@ -387,9 +406,17 @@ def main() -> None:
 
     last_skeleton: np.ndarray | None = None
     last_frame: np.ndarray | None = None  # keep last good frame to avoid flicker
+    last_source: np.ndarray | None = None  # original source frame
 
     try:
         while True:
+            # Drain source display queue — keep freshest
+            try:
+                while True:
+                    last_source = source_display_queue.get_nowait()
+            except queue.Empty:
+                pass
+
             # Drain queue -- always display the freshest generated frame
             frame_rgb = None
             try:
@@ -404,7 +431,11 @@ def main() -> None:
                 except queue.Empty:
                     # No new frame — re-show last frame to avoid flicker
                     if last_frame is not None:
-                        alive = renderer.show(last_frame, skeleton_rgb=last_skeleton)
+                        alive = renderer.show(
+                            last_frame,
+                            skeleton_rgb=last_skeleton,
+                            source_rgb=last_source,
+                        )
                         if not alive:
                             break
                     else:
@@ -422,7 +453,9 @@ def main() -> None:
             except queue.Empty:
                 pass
 
-            alive = renderer.show(frame_rgb, skeleton_rgb=last_skeleton)
+            alive = renderer.show(
+                frame_rgb, skeleton_rgb=last_skeleton, source_rgb=last_source
+            )
             if not alive:
                 break
 
