@@ -1,202 +1,186 @@
-# realtime-live2d
+# Realtime Live2D
 
-Real-time anime character animation from a webcam or video file using pose-conditioned diffusion.
+[한국어](README_KO.md)
 
-**RTX 5070 Ti benchmarks (pure engine throughput, no I/O):**
+Real-time anime character animation driven by webcam or video input. Your body movements are captured via MediaPipe pose estimation, then an anime character mimics your poses in real-time using Stable Diffusion.
 
-| Backend | 256×256 | 384×384 | 512×512 | Quality |
-|---|---|---|---|---|
-| KohakuV2 + LCM-LoRA + CUDA graph | **~103 FPS** | **~60 FPS** | **~37 FPS** | ★★★★ anime |
-| SD-Turbo + T2I + CUDA graph | **~104 FPS** | **~63 FPS** | **~40 FPS** | ★★★ generic |
-| SD-Turbo + T2I (eager) | ~28 FPS | ~26 FPS | — | ★★★ generic |
-| LCM + T2I-Adapter | — | ~27 FPS | ~15 FPS | ★★★ generic |
-| LCM + ControlNet | — | ~20 FPS | ~11 FPS | ★★★ generic |
-
-## How it works
+## Architecture
 
 ```
-VideoCapture → PoseExtractor (MediaPipe) → DiffusionEngine (GPU) → Display
+[Webcam / Video] → [MediaPipe Pose] → [Diffusion Engine (GPU)] → [Display / MP4]
+                     skeleton extraction    IP-Adapter (character)
+                                            ControlNet (pose)
+                                            LCM (speed)
 ```
 
-Each stage runs in its own thread. Queues are bounded and drop stale frames so latency never accumulates.
+Each stage runs in its own thread with bounded queues — latency never accumulates.
+
+## Key Features
+
+- **IP-Adapter + ControlNet**: Character appearance and pose are controlled through independent paths. No conflict between style preservation and pose accuracy.
+- **Temporal Feedback**: Previous frame feeds into the next generation for consistent style across frames.
+- **Fixed Noise**: Same latent tensor reused every frame so only pose changes affect the output.
+- **Multiple Backends**: From ~5 FPS (best quality) to ~73 FPS (fastest), pick your tradeoff.
+- **Headless Recording**: `--output result.mp4` processes a video file and saves the result without GUI.
+
+## Requirements
+
+- Python 3.12+
+- CUDA 12.8+
+- NVIDIA GPU (tested on RTX 5070 Ti, 16GB VRAM)
 
 ## Setup
 
-Requires Python 3.12, CUDA 12.8, and an NVIDIA GPU (tested on RTX 5070 Ti).
-
-```powershell
-git clone https://github.com/yourname/realtime-live2d
+```bash
+git clone https://github.com/GonGe1018/realtime-live2d
 cd realtime-live2d
 uv sync
 ```
 
-`uv sync` installs everything including PyTorch cu128 via direct wheel URLs — no manual pip steps needed.
+All dependencies including PyTorch CUDA wheels are resolved automatically by `uv sync`.
 
-## Run
+## Quick Start
 
-```powershell
-# Quality presets (easiest way to tune speed vs quality)
-uv run live2d --quality fast       # 256px, no hands, ~103 FPS
-uv run live2d --quality balanced   # 384px, default, ~60 FPS
-uv run live2d --quality quality    # 512px, ~37 FPS
+```bash
+# Webcam (real-time, default IP-Adapter backend)
+uv run live2d --source 0
 
-# Manual control
-uv run live2d --source 0                   # webcam
-uv run live2d --backend lcm_graph          # default, KohakuV2 anime, ~60 FPS
-uv run live2d --backend sdturbo_graph      # SD-Turbo, ~63 FPS
-uv run live2d --backend sdturbo            # eager, ~27 FPS
-uv run live2d --backend t2i
-uv run live2d --backend controlnet
+# Video file → MP4 output (no GUI)
+uv run live2d --source input.mp4 --output result.mp4
+
+# Use a custom character reference image
+uv run live2d --source 0 --reference my_character.png
 ```
 
-Press `q` in the display window to quit.
+## Backends
 
-Or use the convenience script:
+| Backend | FPS (384px) | Character Consistency | Pose Accuracy | Use Case |
+|---|---|---|---|---|
+| `ip_adapter` | ~5-17 | Best | Good | Character-driven animation |
+| `lcm_graph` | ~60 | Low | Good | Fast prototyping |
+| `sdturbo_graph` | ~63 | Low | Good | Fast prototyping |
+| `controlnet` | ~19 | Medium | Good | ControlNet experiments |
+| `sdturbo` | ~25 | Low | Good | Eager mode debugging |
+| `t2i` | ~25 | Low | Good | T2I-Adapter experiments |
 
-```powershell
-.\run.ps1 --source 0 --size 384
-```
+The `ip_adapter` backend uses IP-Adapter Plus for character appearance + ControlNet for pose + LCM-LoRA for speed + temporal feedback from the previous frame.
 
-## CLI reference
+## CLI Reference
 
 | Flag | Default | Description |
 |---|---|---|
-| `--source` | `assets/test_input.mp4` | Video file path or webcam index |
-| `--steps` | `1` | LCM inference steps (1–4, lcm_graph uses CUDA graph at 1, eager at 2+) |
-| `--size` | `384` | Output resolution: 256 / 384 / 512 |
-| `--model` | — | Anime model for `lcm_graph` (e.g. `Lykon/dreamshaper-8`) |
-| `--quality` | — | `fast` (~103 FPS) / `balanced` (~60 FPS) / `quality` (~37 FPS) |
-| `--backend` | `lcm_graph` | `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
-| `--max-fps` | `60` | Cap display refresh rate (0 = uncapped) |
+| `--source` | `assets/test_input.mp4` | Video file path or webcam index (0, 1, ...) |
+| `--output`, `-o` | — | Save to MP4 and exit (headless, no GUI) |
+| `--reference` | `assets/reference.png` | Character reference image for IP-Adapter |
+| `--backend` | `ip_adapter` | `ip_adapter` / `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
+| `--steps` | `1` (4 for ip_adapter) | Inference steps |
+| `--size` | `384` | Output resolution: `256` / `384` / `512` |
+| `--ip-scale` | `0.5` | IP-Adapter strength (0.3=light, 0.7=strong character) |
+| `--cn-scale` | `1.5` | ControlNet pose strength |
+| `--feedback` | `0.3` | Temporal feedback (0.3=strong coherence, 1.0=no feedback) |
+| `--strength` | `0.5` | img2img strength for legacy backends |
+| `--seed` | `42` | Noise seed (-1 = random) |
 | `--prompt` | see config.py | Generation prompt |
-| `--negative-prompt` | see config.py | Negative prompt |
-| `--seed` | `42` | Noise seed (-1 = random each run) |
+| `--quality` | — | Preset: `fast` / `balanced` / `quality` |
+| `--max-fps` | `60` | Display refresh cap |
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
-| `--no-hands` | off | Skip hand landmark detection |
-| `--temporal` | `0.5` | Latent blending (0.0=frozen, 1.0=no coherence) |
+| `--no-hands` | off | Skip hand detection |
+
+## Examples
+
+```bash
+# Strong character preservation, moderate pose
+uv run live2d --source 0 --ip-scale 0.6 --cn-scale 1.0
+
+# Strong pose following, lighter character
+uv run live2d --source 0 --ip-scale 0.4 --cn-scale 1.5
+
+# No temporal feedback (each frame independent)
+uv run live2d --source 0 --feedback 1.0
+
+# Batch process a dance video
+uv run live2d --source dance.mp4 -o dance_anime.mp4 --steps 4
+
+# Fast backend for prototyping (~60 FPS)
+uv run live2d --source 0 --backend lcm_graph
+```
+
+## How IP-Adapter Backend Works
+
+```
+Frame 1:  Fixed noise → UNet + ControlNet(pose₁) + IP-Adapter(character) → Output₁
+                                                                              ↓
+Frame 2:  Output₁ + noise → UNet + ControlNet(pose₂) + IP-Adapter(character) → Output₂
+                                                                                  ↓
+Frame 3:  Output₂ + noise → UNet + ControlNet(pose₃) + IP-Adapter(character) → Output₃
+```
+
+- **IP-Adapter Plus**: Injects character appearance via CLIP patch embeddings into cross-attention (cached at startup, zero per-frame cost)
+- **ControlNet**: Guides pose via OpenPose skeleton at every denoising step
+- **Temporal Feedback**: Previous output feeds back as img2img input, preserving style continuity
+- **Fixed Noise**: First frame uses a deterministic latent for reproducible baseline
 
 ## Configuration
 
-Edit `config.py` to change defaults without CLI flags:
+Edit `config.py` for persistent defaults:
 
 ```python
-cfg.video_source = 0          # webcam
-cfg.num_inference_steps = 2   # better quality (t2i/controlnet only)
-cfg.output_width = 512        # higher resolution
-cfg.prompt = "..."            # your prompt
-cfg.detect_hands = False      # skip hand detection
-cfg.lcm_model_id = "Lykon/dreamshaper-8"  # alternative anime model
-```
-
-## Benchmarks
-
-Run the full benchmark suite (eager backends):
-
-```powershell
-uv run python scripts/bench_all.py
-```
-
-Pure engine throughput (CUDA graph backends):
-
-```powershell
-uv run python scripts/bench_throughput.py --engine lcm_graph
-uv run python scripts/bench_throughput.py --engine sdturbo_graph
-```
-
-Per-op hot path profiling:
-
-```powershell
-uv run python scripts/profile_worker.py
+cfg.video_source = 0                        # webcam
+cfg.engine_backend = "ip_adapter"           # best character consistency
+cfg.reference_image = "my_character.png"    # your character
+cfg.ip_adapter_scale = 0.5                  # character strength
+cfg.controlnet_conditioning_scale = 1.5     # pose strength
+cfg.temporal_feedback_strength = 0.3        # style coherence
+cfg.output_width = cfg.output_height = 384  # resolution
 ```
 
 ## Models
 
-Downloaded automatically on first run to `~/.cache/huggingface/`:
+All models are downloaded automatically on first run to `~/.cache/huggingface/`:
 
 | Model | Size | Purpose |
 |---|---|---|
-| `KBlueLeaf/kohaku-v2.1` | ~2 GB | Anime SD1.5 base (lcm_graph default) |
-| `latent-consistency/lcm-lora-sdv1-5` | ~200 MB | LCM-LoRA weights (fused at startup) |
-| `stabilityai/sd-turbo` | 3.1 GB | SD-Turbo base (sdturbo_graph) |
-| `TencentARC/t2iadapter_openpose_sd14v1` | 77 MB | Pose conditioning (T2I-Adapter) |
-| `lllyasviel/control_v11p_sd15_openpose` | 361 MB | ControlNet (alternative) |
-| `madebyollin/taesd` | 5 MB | Tiny VAE decoder |
-| `pose_landmarker_lite.task` | ~5 MB | MediaPipe pose model |
-| `hand_landmarker.task` | ~9 MB | MediaPipe hand model |
+| `KBlueLeaf/kohaku-v2.1` | ~2 GB | Anime SD1.5 base model |
+| `latent-consistency/lcm-lora-sdv1-5` | ~200 MB | LCM-LoRA for fast inference |
+| `h94/IP-Adapter` (ip-adapter-plus_sd15) | ~98 MB | Character appearance preservation |
+| `h94/IP-Adapter` (image_encoder) | ~1.2 GB | CLIP ViT-H-14 (unloaded after caching) |
+| `lllyasviel/control_v11p_sd15_openpose` | ~361 MB | ControlNet OpenPose |
+| `TencentARC/t2iadapter_openpose_sd14v1` | ~77 MB | T2I-Adapter (lcm_graph backend) |
+| `madebyollin/taesd` | ~5 MB | Tiny VAE decoder |
+| MediaPipe pose/hand models | ~14 MB | Pose estimation |
 
-## Project structure
+## Project Structure
 
 ```
-main.py                     # pipeline orchestration
-config.py                   # all tunable parameters
-run.ps1                     # convenience launcher (uv sync + run)
+main.py                                  # Pipeline orchestration + CLI
+config.py                                # All tunable parameters
 src/
-  capture.py                # threaded video capture
-  pose_extractor.py         # MediaPipe -> OpenPose skeleton map
-  diffusion_engine_lcm_graph.py              # KohakuV2 + LCM-LoRA + CUDA graph (default)
-  diffusion_engine_sdturbo_graph.py          # SD-Turbo + T2I-Adapter + CUDA graph
-  diffusion_engine_sdturbo.py        # SD-Turbo + T2I-Adapter eager
-  diffusion_engine_t2i.py            # LCM + T2I-Adapter
-  diffusion_engine.py                # LCM + ControlNet
-  interpolator.py           # temporal frame blending (cv2.addWeighted)
-  renderer.py               # OpenCV display + FPS overlay + rate cap
-scripts/
-  test_stage1.py            # pose extraction benchmark (54 FPS)
-  test_stage3.py            # end-to-end pipeline benchmark
-  test_graph_engine.py      # CUDA graph engine benchmark (sdturbo_graph)
-  test_lcm_graph.py         # CUDA graph engine benchmark (lcm_graph)
-  test_t2i_adapter.py       # T2I-Adapter engine benchmark
-  test_webcam.py            # live webcam test with display
-  bench_all.py              # full benchmark matrix (all backends x resolutions)
-  bench_throughput.py       # pure engine throughput (no I/O bottleneck)
-  bench_latency.py          # end-to-end latency (5.9ms avg @ 384x384)
-  bench_cuda_graphs.py      # CUDA graph vs eager UNet comparison
-  bench_sdturbo.py          # SD-Turbo vs LCM isolated comparison
-  bench_anime_lcm.py        # anime model comparison (KohakuV2 vs DreamShaper8)
-  bench_lcm_steps.py        # LCM step count vs speed tradeoff
-  bench_gil_contention.py   # GIL contention measurement (0.3%)
-  bench_int8.py             # INT8 quantization (slower on Windows)
-  bench_fp8.py              # FP8 quantization (slower without calibration)
-  bench_sdxl_turbo.py       # SDXL-Turbo (16 FPS, not viable)
-  bench_torch_compile.py    # torch.compile (fails on Windows/no Triton)
-  bench_dtype.py            # dtype comparison (fp16 vs bf16)
-  profile_worker.py         # per-op latency breakdown of engine hot path
-  quality_check.py          # side-by-side comparison video
-  make_test_video.py        # generate synthetic test input
+  diffusion_engine_ip_adapter.py         # IP-Adapter + ControlNet + LCM (default)
+  diffusion_engine_lcm_graph.py          # KohakuV2 + LCM-LoRA + CUDA graph
+  diffusion_engine_sdturbo_graph.py      # SD-Turbo + T2I-Adapter + CUDA graph
+  diffusion_engine.py                    # LCM + ControlNet (eager)
+  diffusion_engine_t2i.py               # LCM + T2I-Adapter (eager)
+  diffusion_engine_sdturbo.py            # SD-Turbo + T2I-Adapter (eager)
+  capture.py                             # Threaded video capture (FPS-synced)
+  pose_extractor.py                      # MediaPipe → OpenPose skeleton
+  interpolator.py                        # Temporal frame blending
+  renderer.py                            # OpenCV display + FPS overlay
+assets/
+  reference.png                          # Default character reference
+  models/                                # MediaPipe model files
 ```
 
-## Optimisations applied
+## Version History
 
-| Optimisation | Gain | Notes |
-|---|---|---|
-| CUDA graph (adapter+UNet+VAE) | **~2x** | Eliminates Python kernel-launch overhead |
-| Noise ring (pre-generated) | ~1ms | Avoids `torch.randn` on hot path |
-| Pose frame reuse | ~30% | Engine never waits for pose thread |
-| Async D2H copy | ~0.5ms | Pinned memory + separate CUDA stream |
-| T2I-Adapter vs ControlNet | ~25% | 77M vs 361M params |
-| SD-Turbo vs LCM | ~5% | No scheduler overhead, CFG-free |
-| TAESD vs full VAE | ~10x VAE | 5MB vs 335MB decoder |
-| Pre-computed text embeddings | ~2ms | CLIP runs once at startup |
-| `channels_last` memory layout | ~5% | Better tensor core utilisation |
-| PyTorch SDPA (AttnProcessor2_0) | ~10% | Flash Attention via cuDNN |
-| TF32 on Blackwell | ~5% | Free via `allow_tf32=True` |
-| cuDNN benchmark + warmup | ~3% | Tuned conv algorithms |
-| MediaPipe VIDEO mode | ~25% pose | Temporal tracking vs per-frame detect |
-| pose_landmarker_lite | ~12% pose | 3MB vs 8MB model |
-| ctrl preprocessing in pose thread | 0ms hot path | 3ms numpy work offloaded |
-| float32 intermediate in preprocess | ~1.5ms pose | 2x faster than direct float16 cast |
-| pre-allocated f32 buffer in preprocess | ~0.2ms pose | avoids per-call HWC alloc |
-| `cv2.addWeighted` interpolation | ~0.5ms | SIMD uint8 vs float32 cast |
-| `cv2.convertScaleAbs` D2H cast | ~0.4ms | 15x faster than `(arr*255).astype(u8)` |
-| CPU timestep (avoid device sync) | ~15ms | `int(t.cpu())` vs `int(t)` on CUDA tensor |
-| Skip noise×sigma (LCM σ=1.0) | ~0.01ms | Identity multiply removed |
-| Remove redundant `fill_()` | ~0.01ms | Constant timestep set once at capture |
-| KohakuV2 + LCM-LoRA | quality | Anime-specific SD1.5, same throughput |
+| Branch | Description |
+|---|---|
+| `master` | Current — IP-Adapter + ControlNet + temporal feedback |
+| `dev/v0.0.3-reference-img2img` | Reference image img2img mode |
+| `dev/v0.0.2-source-img2img` | Camera frame img2img (StreamDiffusion style) |
+| `dev/v0.0.1-noise-based` | Pure noise + T2I-Adapter |
+| `dev/v0.0.1-alpha` | Initial prototype |
 
-**What didn't work on Windows:**
-- `torch.compile` — requires Triton (Linux only)
-- INT8 (bitsandbytes) — falls back to dequantize+fp16, 2x slower
-- FP8 (`torch._scaled_mm`) — per-call cast overhead > GEMM gain without calibrated scales
+## License
 
-**Hard floor:** UNet+adapter CUDA graph replay = **15.6ms @ 384×384** (64 FPS theoretical max). End-to-end latency avg **5.5ms** (p95=11ms) due to pose frame reuse.
+MIT
