@@ -24,6 +24,7 @@ import os
 import queue
 import sys
 import threading
+import time
 import warnings
 from pathlib import Path
 
@@ -152,6 +153,12 @@ def parse_args():
         default=None,
         help="IP-Adapter scale (0.3=light, 0.5=balanced, 0.7=strong character, default: 0.5)",
     )
+    p.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Save output to mp4 file and exit (no GUI). e.g. --output result.mp4",
+    )
     return p.parse_args()
 
 
@@ -267,7 +274,7 @@ def main() -> None:
         width=cfg.capture_width,
         height=cfg.capture_height,
         queue_size=cfg.capture_queue_size,
-        loop=True,
+        loop=False if args.output else True,
     )
     extractor = PoseExtractor(
         width=cfg.capture_width,
@@ -303,12 +310,6 @@ def main() -> None:
     else:
         engine = DiffusionEngine(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
-    renderer = Renderer(
-        title=cfg.window_title,
-        show_fps=cfg.show_fps,
-        show_skeleton=cfg.show_skeleton_overlay,
-        max_fps=args.max_fps,
-    )
 
     # Load + warmup models (blocks until ready)
     engine.load()
@@ -325,6 +326,55 @@ def main() -> None:
     )
     pose_thread.start()
     engine.start()
+
+    # ── Headless mode: save to mp4 and exit ───────────────────────────────
+    if args.output:
+        output_path = args.output
+        src_fps = capture.fps
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(
+            output_path,
+            fourcc,
+            src_fps,
+            (cfg.output_width, cfg.output_height),
+        )
+        print(f"\n[Main] Recording to {output_path} ({src_fps:.1f} FPS) ...")
+
+        count = 0
+        t0 = time.perf_counter()
+        try:
+            while True:
+                try:
+                    frame_rgb = out_queue.get(timeout=5)
+                except queue.Empty:
+                    break
+                frame_rgb = interp.blend(frame_rgb)
+                writer.write(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
+                count += 1
+                if not capture._running and out_queue.empty():
+                    break
+        except KeyboardInterrupt:
+            print("\n[Main] Interrupted.")
+        finally:
+            elapsed = time.perf_counter() - t0
+            writer.release()
+            stop_event.set()
+            engine.stop()
+            capture.stop()
+            extractor.close()
+            print(
+                f"[Main] Saved {count} frames in {elapsed:.1f}s "
+                f"({count / elapsed:.1f} gen FPS) -> {output_path}"
+            )
+        return
+
+    # ── GUI mode ──────────────────────────────────────────────────────────
+    renderer = Renderer(
+        title=cfg.window_title,
+        show_fps=cfg.show_fps,
+        show_skeleton=cfg.show_skeleton_overlay,
+        max_fps=args.max_fps,
+    )
 
     print("\n[Main] Pipeline running -- press 'q' in the window to quit.\n")
 
