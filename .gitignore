@@ -13,6 +13,7 @@ __pycache__/
 # Assets (generated)
 assets/**/*.mp4
 assets/**/*.png
+!assets/reference.png
 assets/models/
 
 # IDE
