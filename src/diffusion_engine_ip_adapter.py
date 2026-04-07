@@ -3,16 +3,20 @@ diffusion_engine_ip_adapter.py — IP-Adapter + ControlNet + LCM inference worke
 
 Architecture
 ------------
-- StableDiffusionControlNetPipeline (txt2img) with LCM scheduler
+- StableDiffusionControlNetImg2ImgPipeline with LCM scheduler
 - ControlNet conditioned on OpenPose skeleton (pose guide)
 - IP-Adapter Plus for character appearance preservation
 - TAESD for fast VAE encode/decode
 - CLIP image embeddings cached at startup (zero per-frame cost)
-- Temporal feedback via manual latent blending:
-    prev_output → VAE encode → blend with fixed noise → run ALL steps
-    ControlNet guides pose at every step (no step skipping).
+- Temporal feedback: previous frame as img2img input with enough steps
+  so ControlNet can guide pose at multiple denoising steps.
+
+Key insight: img2img strength controls the starting timestep, and
+total_steps is set high enough so actual_steps = floor(total * strength)
+gives ControlNet enough chances to guide the pose.
 """
 
+import math
 import queue
 import threading
 from typing import Optional
@@ -23,6 +27,7 @@ from diffusers import (
     AutoencoderTiny,
     ControlNetModel,
     LCMScheduler,
+    StableDiffusionControlNetImg2ImgPipeline,
     StableDiffusionControlNetPipeline,
 )
 from PIL import Image
@@ -41,7 +46,8 @@ class DiffusionEngineIPAdapter:
         self.cfg = cfg
         self.in_queue = in_queue
         self.out_queue = out_queue
-        self._pipe = None
+        self._pipe_txt2img = None
+        self._pipe_img2img = None
         self._thread: Optional[threading.Thread] = None
         self._running = False
 
@@ -58,9 +64,9 @@ class DiffusionEngineIPAdapter:
             torch_dtype=dtype,
         )
 
-        # ── 2. Base pipeline (txt2img — feedback via manual latent blend) ─
-        print("[IPAdapter] Loading base pipeline …")
-        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        # ── 2a. txt2img pipeline (first frame only) ──────────────────────
+        print("[IPAdapter] Loading txt2img pipeline …")
+        pipe_txt = StableDiffusionControlNetPipeline.from_pretrained(
             cfg.lcm_model_id,
             controlnet=controlnet,
             torch_dtype=dtype,
@@ -69,30 +75,45 @@ class DiffusionEngineIPAdapter:
 
         # ── 3. LCM-LoRA + scheduler ──────────────────────────────────────
         print("[IPAdapter] Loading LCM-LoRA …")
-        pipe.load_lora_weights("latent-consistency/lcm-lora-sdv1-5")
-        pipe.fuse_lora()
-        pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+        pipe_txt.load_lora_weights("latent-consistency/lcm-lora-sdv1-5")
+        pipe_txt.fuse_lora()
+        pipe_txt.scheduler = LCMScheduler.from_config(pipe_txt.scheduler.config)
 
-        # ── 4. TAESD (fast VAE encode + decode) ──────────────────────────
+        # ── 4. TAESD ─────────────────────────────────────────────────────
         print("[IPAdapter] Loading TAESD …")
-        pipe.vae = AutoencoderTiny.from_pretrained(
+        pipe_txt.vae = AutoencoderTiny.from_pretrained(
             cfg.taesd_model_id,
             torch_dtype=dtype,
         )
 
-        pipe = pipe.to(device)
-        pipe.set_progress_bar_config(disable=True)
+        pipe_txt = pipe_txt.to(device)
+        pipe_txt.set_progress_bar_config(disable=True)
 
         # ── 5. IP-Adapter Plus ────────────────────────────────────────────
         ip_weight = getattr(cfg, "ip_adapter_weight", "ip-adapter-plus_sd15.bin")
         ip_scale = getattr(cfg, "ip_adapter_scale", 0.5)
         print(f"[IPAdapter] Loading IP-Adapter: {ip_weight}, scale={ip_scale} …")
-        pipe.load_ip_adapter(
+        pipe_txt.load_ip_adapter(
             "h94/IP-Adapter",
             subfolder="models",
             weight_name=ip_weight,
         )
-        pipe.set_ip_adapter_scale(ip_scale)
+        pipe_txt.set_ip_adapter_scale(ip_scale)
+
+        # ── 2b. img2img pipeline (shares components with txt2img) ─────────
+        print("[IPAdapter] Creating img2img pipeline …")
+        pipe_img = StableDiffusionControlNetImg2ImgPipeline(
+            vae=pipe_txt.vae,
+            text_encoder=pipe_txt.text_encoder,
+            tokenizer=pipe_txt.tokenizer,
+            unet=pipe_txt.unet,
+            controlnet=pipe_txt.controlnet,
+            scheduler=pipe_txt.scheduler,
+            safety_checker=None,
+            feature_extractor=None,
+            image_encoder=getattr(pipe_txt, "image_encoder", None),
+        )
+        pipe_img.set_progress_bar_config(disable=True)
 
         # ── 6. Performance optimizations ──────────────────────────────────
         torch.backends.cudnn.benchmark = True
@@ -101,15 +122,15 @@ class DiffusionEngineIPAdapter:
         torch.backends.cuda.enable_flash_sdp(True)
         torch.backends.cuda.enable_mem_efficient_sdp(True)
 
-        pipe.unet = pipe.unet.to(memory_format=torch.channels_last)
-        pipe.controlnet = pipe.controlnet.to(memory_format=torch.channels_last)
-        pipe.vae = pipe.vae.to(memory_format=torch.channels_last)
+        pipe_txt.unet = pipe_txt.unet.to(memory_format=torch.channels_last)
+        pipe_txt.controlnet = pipe_txt.controlnet.to(memory_format=torch.channels_last)
+        pipe_txt.vae = pipe_txt.vae.to(memory_format=torch.channels_last)
 
         # ── 7. Pre-compute text embeddings ────────────────────────────────
         print("[IPAdapter] Pre-computing text embeddings …")
         do_cfg = cfg.guidance_scale > 1.0
         with torch.inference_mode():
-            self._prompt_embeds, self._neg_embeds = pipe.encode_prompt(
+            self._prompt_embeds, self._neg_embeds = pipe_txt.encode_prompt(
                 prompt=cfg.prompt,
                 device=device,
                 num_images_per_prompt=1,
@@ -123,7 +144,7 @@ class DiffusionEngineIPAdapter:
             print(f"[IPAdapter] Encoding reference image: {ref_path} …")
             ref_pil = Image.open(ref_path).convert("RGB").resize((W, H))
             with torch.inference_mode():
-                self._ip_embeds = pipe.prepare_ip_adapter_image_embeds(
+                self._ip_embeds = pipe_txt.prepare_ip_adapter_image_embeds(
                     ip_adapter_image=ref_pil,
                     ip_adapter_image_embeds=None,
                     device=device,
@@ -139,16 +160,22 @@ class DiffusionEngineIPAdapter:
             print("[IPAdapter] WARNING: no reference image configured")
 
         # ── 9. Unload CLIP image encoder to free VRAM ─────────────────────
-        if hasattr(pipe, "image_encoder") and pipe.image_encoder is not None:
-            del pipe.image_encoder
-            pipe.image_encoder = None
-        if hasattr(pipe, "feature_extractor") and pipe.feature_extractor is not None:
-            del pipe.feature_extractor
-            pipe.feature_extractor = None
+        if hasattr(pipe_txt, "image_encoder") and pipe_txt.image_encoder is not None:
+            del pipe_txt.image_encoder
+            pipe_txt.image_encoder = None
+        if (
+            hasattr(pipe_txt, "feature_extractor")
+            and pipe_txt.feature_extractor is not None
+        ):
+            del pipe_txt.feature_extractor
+            pipe_txt.feature_extractor = None
+        pipe_img.image_encoder = None
+        pipe_img.feature_extractor = None
         torch.cuda.empty_cache()
         print("[IPAdapter] CLIP encoder unloaded (VRAM freed)")
 
-        self._pipe = pipe
+        self._pipe_txt2img = pipe_txt
+        self._pipe_img2img = pipe_img
         self._device = device
         self._dtype = dtype
         self._H, self._W = H, W
@@ -160,36 +187,60 @@ class DiffusionEngineIPAdapter:
         self._transfer_stream = torch.cuda.Stream()
 
         # Steps and scales
-        self._steps = max(cfg.num_inference_steps, 4)
         self._cn_scale = getattr(cfg, "controlnet_conditioning_scale", 1.0)
 
-        # Temporal feedback: noise ratio blended with previous latent
-        #   0.3 = 30% noise + 70% previous frame latent (recommended)
-        #   0.5 = 50/50
-        #   1.0 = pure noise (no feedback, each frame independent)
-        self._feedback_alpha = getattr(cfg, "temporal_feedback_strength", 0.3)
+        # Temporal feedback strength
+        self._feedback_strength = getattr(cfg, "temporal_feedback_strength", 0.3)
+
+        # txt2img steps (first frame)
+        self._txt2img_steps = max(cfg.num_inference_steps, 4)
+
+        # img2img steps: ensure actual_steps = floor(total * strength) >= 4
+        # so ControlNet gets enough chances to guide pose
+        desired_actual = 4
+        self._img2img_total_steps = max(
+            self._txt2img_steps,
+            math.ceil(desired_actual / self._feedback_strength),
+        )
+        actual = int(self._img2img_total_steps * self._feedback_strength)
         print(
-            f"[IPAdapter] Temporal feedback: alpha={self._feedback_alpha}, "
-            f"steps={self._steps} (all steps run regardless)"
+            f"[IPAdapter] Temporal feedback: strength={self._feedback_strength}, "
+            f"img2img total_steps={self._img2img_total_steps}, "
+            f"actual_steps~{actual}"
         )
 
         # ── 10. Warmup ────────────────────────────────────────────────────
-        print(f"[IPAdapter] Warming up (steps={self._steps}) …")
+        print(f"[IPAdapter] Warming up …")
         dummy = torch.zeros(1, 3, H, W, dtype=dtype, device=device).to(
             memory_format=torch.channels_last
         )
         with torch.inference_mode():
-            for _ in range(4):
-                pipe(
+            # Warmup txt2img
+            for _ in range(2):
+                pipe_txt(
                     prompt_embeds=self._prompt_embeds,
                     negative_prompt_embeds=self._neg_embeds,
                     image=dummy,
                     ip_adapter_image_embeds=self._ip_embeds,
-                    num_inference_steps=self._steps,
+                    num_inference_steps=self._txt2img_steps,
                     guidance_scale=cfg.guidance_scale,
                     controlnet_conditioning_scale=self._cn_scale,
                     width=W,
                     height=H,
+                    output_type="pt",
+                )
+            # Warmup img2img
+            for _ in range(2):
+                pipe_img(
+                    prompt_embeds=self._prompt_embeds,
+                    negative_prompt_embeds=self._neg_embeds,
+                    image=dummy,
+                    control_image=dummy,
+                    ip_adapter_image_embeds=self._ip_embeds,
+                    strength=self._feedback_strength,
+                    num_inference_steps=self._img2img_total_steps,
+                    guidance_scale=cfg.guidance_scale,
+                    controlnet_conditioning_scale=self._cn_scale,
                     output_type="pt",
                 )
         torch.cuda.synchronize()
@@ -214,7 +265,8 @@ class DiffusionEngineIPAdapter:
 
     def _worker(self) -> None:
         cfg = self.cfg
-        pipe = self._pipe
+        pipe_txt = self._pipe_txt2img
+        pipe_img = self._pipe_img2img
         torch.set_num_threads(2)
         seed = getattr(cfg, "seed", 42)
         generator = torch.Generator(device=self._device).manual_seed(
@@ -222,10 +274,9 @@ class DiffusionEngineIPAdapter:
         )
 
         lH, lW = self._H // 8, self._W // 8
-        alpha = self._feedback_alpha
 
-        # Fixed noise for deterministic baseline
-        fixed_noise = torch.randn(
+        # Fixed noise for first frame
+        fixed_latents = torch.randn(
             (1, 4, lH, lW),
             dtype=self._dtype,
             device=self._device,
@@ -293,40 +344,40 @@ class DiffusionEngineIPAdapter:
                 )
             torch.cuda.current_stream().wait_stream(self._transfer_stream)
 
-            # ── Build starting latents ────────────────────────────────────
+            # ── GPU inference ─────────────────────────────────────────────
             with torch.inference_mode():
-                if prev_output_gpu is not None and alpha < 1.0:
-                    # Encode previous output → latent space
-                    # TAESD encode expects [-1, 1] input; pipeline output is [0, 1]
-                    prev_for_vae = (prev_output_gpu * 2.0 - 1.0).to(
-                        memory_format=torch.channels_last
+                if prev_output_gpu is None:
+                    # First frame: txt2img with fixed noise
+                    result = pipe_txt(
+                        prompt_embeds=self._prompt_embeds,
+                        negative_prompt_embeds=self._neg_embeds,
+                        image=ctrl_tensor,
+                        ip_adapter_image_embeds=self._ip_embeds,
+                        num_inference_steps=self._txt2img_steps,
+                        guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=self._cn_scale,
+                        width=self._W,
+                        height=self._H,
+                        latents=fixed_latents.clone(),
+                        output_type="pt",
                     )
-                    prev_latent = pipe.vae.encode(prev_for_vae).latents
-
-                    # Blend: α*noise + (1-α)*prev_latent
-                    # α=0.3 → 30% noise, 70% previous structure
-                    start_latents = alpha * fixed_noise + (1.0 - alpha) * prev_latent
                 else:
-                    # First frame: pure fixed noise
-                    start_latents = fixed_noise.clone()
-
-                # ── Run full pipeline with custom latents (ALL steps) ─────
-                result = pipe(
-                    prompt_embeds=self._prompt_embeds,
-                    negative_prompt_embeds=self._neg_embeds,
-                    image=ctrl_tensor,
-                    ip_adapter_image_embeds=self._ip_embeds,
-                    num_inference_steps=self._steps,
-                    guidance_scale=cfg.guidance_scale,
-                    controlnet_conditioning_scale=self._cn_scale,
-                    width=self._W,
-                    height=self._H,
-                    latents=start_latents,
-                    output_type="pt",
-                )
+                    # Subsequent frames: img2img from previous output
+                    # total_steps is high enough so actual_steps >= 4
+                    result = pipe_img(
+                        prompt_embeds=self._prompt_embeds,
+                        negative_prompt_embeds=self._neg_embeds,
+                        image=prev_output_gpu,
+                        control_image=ctrl_tensor,
+                        ip_adapter_image_embeds=self._ip_embeds,
+                        strength=self._feedback_strength,
+                        num_inference_steps=self._img2img_total_steps,
+                        guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=self._cn_scale,
+                        output_type="pt",
+                    )
 
             gpu_frame = result.images
-            # Keep on GPU for next frame's feedback
             prev_output_gpu = gpu_frame
 
             # ── Async D2H copy ────────────────────────────────────────────
