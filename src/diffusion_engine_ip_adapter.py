@@ -283,9 +283,19 @@ class DiffusionEngineIPAdapter:
             generator=generator,
         )
 
+        # Adaptive feedback parameters
+        base_strength = self._feedback_strength  # 0.3 = default minimum
+        max_strength = 0.85  # cap to avoid full reset every frame
+        # ctrl_diff thresholds (measured: jitter ~0.005, small move ~0.01, big move ~0.025)
+        motion_lo = 0.008  # below this = jitter, use base_strength
+        motion_hi = 0.04  # above this = large motion, use max_strength
+        # If control map is nearly empty (person left), reset
+        pose_empty_threshold = 0.001
+
         copy_stream = torch.cuda.Stream()
-        prev_gpu_frame: torch.Tensor | None = None  # for async D2H copy
-        prev_output_gpu: torch.Tensor | None = None  # (1,3,H,W) for feedback
+        prev_gpu_frame: torch.Tensor | None = None
+        prev_output_gpu: torch.Tensor | None = None
+        prev_ctrl_np: np.ndarray | None = None  # for motion detection
 
         while self._running:
             # Drain queue — keep freshest control map
@@ -344,10 +354,42 @@ class DiffusionEngineIPAdapter:
                 )
             torch.cuda.current_stream().wait_stream(self._transfer_stream)
 
+            # ── Adaptive feedback: measure motion ─────────────────────────
+            pose_energy = float(np.abs(ctrl_np).mean())
+            if pose_energy < pose_empty_threshold:
+                # No person detected → reset, next frame starts fresh
+                prev_output_gpu = None
+                prev_ctrl_np = None
+
+            if prev_ctrl_np is not None and prev_output_gpu is not None:
+                ctrl_diff = float(
+                    np.abs(
+                        ctrl_np.astype(np.float32) - prev_ctrl_np.astype(np.float32)
+                    ).mean()
+                )
+                # Linear interpolation: motion_lo → base, motion_hi → max
+                t = (ctrl_diff - motion_lo) / (motion_hi - motion_lo)
+                t = max(0.0, min(1.0, t))
+                adaptive_strength = base_strength + t * (max_strength - base_strength)
+            else:
+                adaptive_strength = 1.0  # first frame or after reset
+
+            prev_ctrl_np = ctrl_np.copy()
+
+            # Compute total_steps for this frame's strength
+            desired_actual = 4
+            if adaptive_strength < 1.0:
+                total_steps = max(
+                    self._txt2img_steps,
+                    math.ceil(desired_actual / adaptive_strength),
+                )
+            else:
+                total_steps = self._txt2img_steps
+
             # ── GPU inference ─────────────────────────────────────────────
             with torch.inference_mode():
-                if prev_output_gpu is None:
-                    # First frame: txt2img with fixed noise
+                if prev_output_gpu is None or adaptive_strength >= 0.99:
+                    # First frame or large motion: txt2img (full freedom)
                     result = pipe_txt(
                         prompt_embeds=self._prompt_embeds,
                         negative_prompt_embeds=self._neg_embeds,
@@ -362,16 +404,15 @@ class DiffusionEngineIPAdapter:
                         output_type="pt",
                     )
                 else:
-                    # Subsequent frames: img2img from previous output
-                    # total_steps is high enough so actual_steps >= 4
+                    # Subsequent frames: img2img with adaptive strength
                     result = pipe_img(
                         prompt_embeds=self._prompt_embeds,
                         negative_prompt_embeds=self._neg_embeds,
                         image=prev_output_gpu,
                         control_image=ctrl_tensor,
                         ip_adapter_image_embeds=self._ip_embeds,
-                        strength=self._feedback_strength,
-                        num_inference_steps=self._img2img_total_steps,
+                        strength=adaptive_strength,
+                        num_inference_steps=total_steps,
                         guidance_scale=cfg.guidance_scale,
                         controlnet_conditioning_scale=self._cn_scale,
                         output_type="pt",
