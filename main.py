@@ -348,7 +348,6 @@ def main() -> None:
                     frame_rgb = out_queue.get(timeout=5)
                 except queue.Empty:
                     break
-                frame_rgb = interp.blend(frame_rgb)
                 writer.write(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
                 count += 1
                 if not capture._running and out_queue.empty():
