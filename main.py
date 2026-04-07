@@ -154,6 +154,12 @@ def parse_args():
         help="IP-Adapter scale (0.3=light, 0.5=balanced, 0.7=strong character, default: 0.5)",
     )
     p.add_argument(
+        "--guidance",
+        type=float,
+        default=None,
+        help="Guidance scale (1.0=CFG-free, 1.5=recommended with IP-Adapter, default: 1.0)",
+    )
+    p.add_argument(
         "--feedback",
         type=float,
         default=None,
@@ -164,6 +170,11 @@ def parse_args():
         "-o",
         default=None,
         help="Save output to mp4 file and exit (no GUI). e.g. --output result.mp4",
+    )
+    p.add_argument(
+        "--no-gui",
+        action="store_true",
+        help="Skip settings GUI, use CLI args and config.py defaults directly",
     )
     return p.parse_args()
 
@@ -220,7 +231,14 @@ def pose_worker(
 def main() -> None:
     args = parse_args()
 
-    # Apply CLI overrides to config
+    # ── Settings GUI (unless --no-gui or --output) ────────────────────────
+    gui_output = None
+    if not args.no_gui and args.output is None:
+        from src.settings_gui import show_settings_gui
+
+        gui_output = show_settings_gui(cfg)
+
+    # Apply CLI overrides (take priority over GUI settings)
     if args.source is not None:
         try:
             cfg.video_source = int(args.source)
@@ -271,8 +289,13 @@ def main() -> None:
         cfg.controlnet_conditioning_scale = args.cn_scale
     if args.ip_scale is not None:
         cfg.ip_adapter_scale = args.ip_scale
+    if args.guidance is not None:
+        cfg.guidance_scale = max(1.0, min(3.0, args.guidance))
     if args.feedback is not None:
         cfg.temporal_feedback_strength = max(0.0, min(1.0, args.feedback))
+
+    # Resolve output: CLI --output takes priority over GUI setting
+    output_path = args.output or gui_output
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
@@ -355,8 +378,7 @@ def main() -> None:
     engine.start()
 
     # ── Headless mode: save to mp4 and exit ───────────────────────────────
-    if args.output:
-        output_path = args.output
+    if output_path:
         src_fps = capture.fps
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         writer = cv2.VideoWriter(
