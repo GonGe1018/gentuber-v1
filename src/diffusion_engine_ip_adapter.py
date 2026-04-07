@@ -25,7 +25,7 @@ from diffusers import (
     AutoencoderTiny,
     ControlNetModel,
     LCMScheduler,
-    StableDiffusionControlNetPipeline,
+    StableDiffusionControlNetImg2ImgPipeline,
 )
 from diffusers.models.attention_processor import AttnProcessor2_0
 from PIL import Image
@@ -61,9 +61,9 @@ class DiffusionEngineIPAdapter:
             torch_dtype=dtype,
         )
 
-        # ── 2. Base pipeline (anime model) ────────────────────────────────
-        print("[IPAdapter] Loading base pipeline …")
-        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        # ── 2. Base pipeline (anime model) — img2img for temporal feedback ─
+        print("[IPAdapter] Loading base pipeline (img2img) …")
+        pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
             cfg.lcm_model_id,
             controlnet=controlnet,
             torch_dtype=dtype,
@@ -165,6 +165,17 @@ class DiffusionEngineIPAdapter:
         self._steps = max(cfg.num_inference_steps, 4)  # IP-Adapter needs >= 4 steps
         self._cn_scale = getattr(cfg, "controlnet_conditioning_scale", 1.0)
 
+        # Temporal feedback: use previous frame as img2img input
+        self._feedback_strength = getattr(cfg, "temporal_feedback_strength", 0.3)
+        # Ensure enough steps so steps * feedback_strength >= 1
+        if self._feedback_strength < 1.0:
+            min_steps = math.ceil(1.0 / self._feedback_strength)
+            self._steps = max(self._steps, min_steps)
+        print(
+            f"[IPAdapter] Temporal feedback: strength={self._feedback_strength}, "
+            f"steps={self._steps}"
+        )
+
         # ── 10. Warmup ────────────────────────────────────────────────────
         print(f"[IPAdapter] Warming up (steps={self._steps}) …")
         dummy = torch.zeros((1, 3, H, W), dtype=dtype, device=device).to(
@@ -175,13 +186,13 @@ class DiffusionEngineIPAdapter:
                 pipe(
                     prompt_embeds=self._prompt_embeds,
                     negative_prompt_embeds=self._neg_embeds,
-                    image=dummy,
+                    image=dummy,  # img2img source
+                    control_image=dummy,  # ControlNet skeleton
                     ip_adapter_image_embeds=self._ip_embeds,
+                    strength=self._feedback_strength,
                     num_inference_steps=self._steps,
                     guidance_scale=cfg.guidance_scale,
                     controlnet_conditioning_scale=self._cn_scale,
-                    width=W,
-                    height=H,
                     output_type="pt",
                 )
         torch.cuda.synchronize()
@@ -214,7 +225,7 @@ class DiffusionEngineIPAdapter:
             seed if seed >= 0 else torch.randint(0, 2**31, (1,)).item()
         )
 
-        # Fixed noise: same latent every frame → consistent style/details
+        # Fixed noise: same latent for first frame → consistent baseline
         lH, lW = self._H // 8, self._W // 8
         fixed_latents = torch.randn(
             (1, 4, lH, lW),
@@ -224,7 +235,18 @@ class DiffusionEngineIPAdapter:
         )
 
         copy_stream = torch.cuda.Stream()
-        prev_gpu_frame: torch.Tensor | None = None
+        prev_gpu_frame: torch.Tensor | None = None  # for async D2H copy
+        prev_output_gpu: torch.Tensor | None = None  # for temporal feedback
+
+        # Dummy image for first frame (strength=1.0 ignores it)
+        dummy_img = torch.zeros(
+            1,
+            3,
+            self._H,
+            self._W,
+            dtype=self._dtype,
+            device=self._device,
+        ).to(memory_format=torch.channels_last)
 
         while self._running:
             # Drain queue — keep freshest control map
@@ -283,22 +305,40 @@ class DiffusionEngineIPAdapter:
                 )
             torch.cuda.current_stream().wait_stream(self._transfer_stream)
 
-            # ── GPU inference: txt2img + ControlNet + IP-Adapter ──────────
+            # ── GPU inference ─────────────────────────────────────────────
             with torch.inference_mode():
-                result = pipe(
-                    prompt_embeds=self._prompt_embeds,
-                    negative_prompt_embeds=self._neg_embeds,
-                    image=ctrl_tensor,
-                    ip_adapter_image_embeds=self._ip_embeds,
-                    num_inference_steps=self._steps,
-                    guidance_scale=cfg.guidance_scale,
-                    controlnet_conditioning_scale=self._cn_scale,
-                    width=self._W,
-                    height=self._H,
-                    latents=fixed_latents.clone(),
-                    output_type="pt",
-                )
+                if prev_output_gpu is None:
+                    # First frame: strength=1.0 (pure noise, fixed latents)
+                    result = pipe(
+                        prompt_embeds=self._prompt_embeds,
+                        negative_prompt_embeds=self._neg_embeds,
+                        image=dummy_img,
+                        control_image=ctrl_tensor,
+                        ip_adapter_image_embeds=self._ip_embeds,
+                        strength=1.0,
+                        num_inference_steps=self._steps,
+                        guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=self._cn_scale,
+                        latents=fixed_latents.clone(),
+                        output_type="pt",
+                    )
+                else:
+                    # Subsequent frames: img2img from previous output
+                    result = pipe(
+                        prompt_embeds=self._prompt_embeds,
+                        negative_prompt_embeds=self._neg_embeds,
+                        image=prev_output_gpu,
+                        control_image=ctrl_tensor,
+                        ip_adapter_image_embeds=self._ip_embeds,
+                        strength=self._feedback_strength,
+                        num_inference_steps=self._steps,
+                        guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=self._cn_scale,
+                        output_type="pt",
+                    )
             gpu_frame = result.images
+            # Keep on GPU for next frame's feedback (no extra copy)
+            prev_output_gpu = gpu_frame
 
             # ── Async D2H copy ────────────────────────────────────────────
             if prev_gpu_frame is not None:

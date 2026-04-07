@@ -115,6 +115,12 @@ class Config:
     ip_adapter_scale: float = 0.5
     ip_adapter_weight: str = "ip-adapter-plus_sd15.bin"
 
+    # Temporal feedback: blend previous frame into next frame's input
+    #   0.3 = strong feedback (preserves style, recommended)
+    #   0.5 = moderate feedback
+    #   1.0 = no feedback, pure txt2img each frame
+    temporal_feedback_strength: float = 0.3
+
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"

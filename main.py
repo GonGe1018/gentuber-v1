@@ -154,6 +154,12 @@ def parse_args():
         help="IP-Adapter scale (0.3=light, 0.5=balanced, 0.7=strong character, default: 0.5)",
     )
     p.add_argument(
+        "--feedback",
+        type=float,
+        default=None,
+        help="Temporal feedback strength (0.3=strong coherence, 1.0=no feedback, default: 0.3)",
+    )
+    p.add_argument(
         "--output",
         "-o",
         default=None,
@@ -255,6 +261,8 @@ def main() -> None:
         cfg.controlnet_conditioning_scale = args.cn_scale
     if args.ip_scale is not None:
         cfg.ip_adapter_scale = args.ip_scale
+    if args.feedback is not None:
+        cfg.temporal_feedback_strength = max(0.0, min(1.0, args.feedback))
 
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
