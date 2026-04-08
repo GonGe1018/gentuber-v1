@@ -407,6 +407,39 @@ def main() -> None:
             elapsed = time.perf_counter() - t0
             writer.release()
             stop_event.set()
+
+            # Re-encode to H.264 for browser/GitHub compatibility
+            h264_path = output_path.rsplit(".", 1)[0] + "_h264.mp4"
+            try:
+                import subprocess
+
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        output_path,
+                        "-c:v",
+                        "libx264",
+                        "-preset",
+                        "fast",
+                        "-crf",
+                        "18",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-movflags",
+                        "+faststart",
+                        h264_path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+                import shutil
+
+                shutil.move(h264_path, output_path)
+                print(f"[Main] Re-encoded to H.264: {output_path}")
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                print(f"[Main] ffmpeg not found, keeping mp4v: {output_path}")
             engine.stop()
             capture.stop()
             extractor.close()
