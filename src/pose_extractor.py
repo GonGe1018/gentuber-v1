@@ -140,11 +140,21 @@ class PoseExtractor:
     control_map, keypoints = extractor.process(bgr_frame)
     """
 
-    def __init__(self, width: int = 512, height: int = 512, detect_hands: bool = True):
+    def __init__(
+        self,
+        width: int = 512,
+        height: int = 512,
+        detect_hands: bool = True,
+        half_body: bool = False,
+    ):
         self.width = width
         self.height = height
         self._detect_hands = detect_hands
+        self._half_body = half_body
         self._frame_idx = 0  # used as timestamp_ms for VIDEO mode
+
+        # Lower body OpenPose joint indices to exclude in half_body mode
+        self._lower_body_joints = {8, 9, 10, 11, 12, 13}  # hips, knees, ankles
 
         pose_path = _MODELS_DIR / _POSE_MODEL_FILE
         hand_path = _MODELS_DIR / _HAND_MODEL_FILE
@@ -213,11 +223,18 @@ class PoseExtractor:
             kp["body"] = joints
 
             for a, b in _LIMBS:
+                # Skip lower body limbs in half_body mode
+                if self._half_body and (
+                    a in self._lower_body_joints or b in self._lower_body_joints
+                ):
+                    continue
                 if a in joints and b in joints:
                     color = _POSE_COLORS[a % len(_POSE_COLORS)]
                     cv2.line(canvas, joints[a], joints[b], color, 3, cv2.LINE_AA)
 
             for idx, (px, py) in joints.items():
+                if self._half_body and idx in self._lower_body_joints:
+                    continue
                 color = _POSE_COLORS[idx % len(_POSE_COLORS)]
                 cv2.circle(canvas, (px, py), 5, color, -1, cv2.LINE_AA)
 

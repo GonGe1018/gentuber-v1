@@ -123,6 +123,12 @@ SETTINGS_SCHEMA = [
                 "default": True,
             },
             {
+                "key": "half_body",
+                "label": "Half Body (VTuber)",
+                "type": "check",
+                "default": False,
+            },
+            {
                 "key": "no_interp",
                 "label": "No Interpolation",
                 "type": "check",
@@ -540,6 +546,8 @@ def apply_gui_settings(settings: dict, cfg) -> str | None:
         cfg.show_fps = bool(settings["show_fps"])
     if "detect_hands" in settings:
         cfg.detect_hands = bool(settings["detect_hands"])
+    if "half_body" in settings:
+        cfg.half_body = bool(settings["half_body"])
     if "no_interp" in settings and settings["no_interp"]:
         cfg.interp_alpha = 1.0
     elif "interp_alpha" in settings:

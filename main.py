@@ -109,6 +109,11 @@ def parse_args():
         help="Skip hand landmark detection (saves ~6ms/frame)",
     )
     p.add_argument(
+        "--half-body",
+        action="store_true",
+        help="VTuber mode: upper body only (remove legs from skeleton)",
+    )
+    p.add_argument(
         "--quality",
         choices=["fast", "balanced", "quality"],
         default=None,
@@ -264,6 +269,8 @@ def main() -> None:
         cfg.output_width = cfg.output_height = s
     if args.no_hands:
         cfg.detect_hands = False
+    if args.half_body:
+        cfg.half_body = True
     if args.quality is not None:
         presets = {
             "fast": {"size": 256, "detect_hands": False},
@@ -321,6 +328,7 @@ def main() -> None:
         width=cfg.capture_width,
         height=cfg.capture_height,
         detect_hands=cfg.detect_hands,
+        half_body=cfg.half_body,
     )
     # Select engine backend from config
     if cfg.engine_backend == "ip_adapter":
