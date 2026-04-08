@@ -406,15 +406,13 @@ class DiffusionEngineIPAdapter:
                     scheduler.set_timesteps(actual_steps, device=self._device)
                     timesteps = scheduler.timesteps
 
-                    # Pick starting timestep based on adaptive_strength
-                    # strength=0.3 → start late (low noise, preserve prev)
-                    # strength=0.85 → start early (high noise, more freedom)
-                    start_idx = max(
-                        0,
-                        len(timesteps)
-                        - max(1, round(actual_steps * adaptive_strength)),
-                    )
-                    start_timestep = timesteps[start_idx]
+                    # Pick how many steps to actually run based on strength
+                    # strength=0.3 → run 1-2 steps (light refinement)
+                    # strength=0.85 → run 3-4 steps (heavy change)
+                    num_denoise_steps = max(1, round(actual_steps * adaptive_strength))
+                    # Take only the last N timesteps (lower noise levels)
+                    run_timesteps = timesteps[-num_denoise_steps:]
+                    start_timestep = run_timesteps[0:1]
 
                     # Add noise to previous latent at the starting timestep
                     noise = torch.randn_like(prev_latent)
@@ -422,23 +420,56 @@ class DiffusionEngineIPAdapter:
                         prev_latent, noise, start_timestep
                     )
 
-                    # Run txt2img with noised latent — runs actual_steps total
-                    # but latent already partially denoised, so early steps
-                    # refine rather than generate from scratch
-                    result = pipe_txt(
-                        prompt_embeds=self._prompt_embeds,
-                        negative_prompt_embeds=self._neg_embeds,
-                        image=ctrl_tensor,
-                        ip_adapter_image_embeds=self._ip_embeds,
-                        num_inference_steps=actual_steps,
-                        guidance_scale=cfg.guidance_scale,
-                        controlnet_conditioning_scale=self._cn_scale,
-                        width=self._W,
-                        height=self._H,
-                        latents=noised_latent,
-                        output_type="latent",
-                    )
-                    denoised_latent = result.images
+                    # Manual denoising loop with ControlNet
+                    latent = noised_latent
+                    do_cfg = cfg.guidance_scale > 1.0
+
+                    # IP-Adapter embeds must be passed as list of tensors
+                    if do_cfg:
+                        ip_embeds_loop = self._ip_embeds
+                    else:
+                        ip_embeds_loop = [e[:1] for e in self._ip_embeds]
+
+                    for i, t in enumerate(run_timesteps):
+                        latent_input = torch.cat([latent] * 2) if do_cfg else latent
+                        latent_input = scheduler.scale_model_input(latent_input, t)
+                        ctrl_input = (
+                            torch.cat([ctrl_tensor] * 2) if do_cfg else ctrl_tensor
+                        )
+
+                        # ControlNet
+                        down_samples, mid_sample = pipe_txt.controlnet(
+                            latent_input,
+                            t,
+                            encoder_hidden_states=self._prompt_embeds,
+                            controlnet_cond=ctrl_input,
+                            conditioning_scale=self._cn_scale,
+                            return_dict=False,
+                        )
+
+                        # UNet with ControlNet residuals + IP-Adapter
+                        added_cond_kwargs = {"image_embeds": ip_embeds_loop}
+                        noise_pred = pipe_txt.unet(
+                            latent_input,
+                            t,
+                            encoder_hidden_states=self._prompt_embeds,
+                            down_block_additional_residuals=down_samples,
+                            mid_block_additional_residual=mid_sample,
+                            added_cond_kwargs=added_cond_kwargs,
+                            return_dict=False,
+                        )[0]
+
+                        if do_cfg:
+                            pred_uncond, pred_text = noise_pred.chunk(2)
+                            noise_pred = pred_uncond + cfg.guidance_scale * (
+                                pred_text - pred_uncond
+                            )
+
+                        latent = scheduler.step(
+                            noise_pred, t, latent, return_dict=False
+                        )[0]
+
+                    denoised_latent = latent
 
                 # Save latent for next frame (no VAE encode needed)
                 prev_latent = denoised_latent.detach()
