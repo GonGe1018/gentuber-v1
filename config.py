@@ -122,7 +122,9 @@ class Config:
     #   0.5 = weak pose guide (more freedom for the model)
     #   1.0 = default
     #   1.5-2.0 = strong pose guide (recommended for reference img2img)
-    controlnet_conditioning_scale: float = 1.5
+    controlnet_conditioning_scale: float = (
+        2.0  # ControlNet pose strength (higher = stronger pose following)
+    )
 
     # IP-Adapter: character appearance preservation via CLIP image embeddings
     #   Scale controls how strongly the reference image influences generation
