@@ -304,6 +304,10 @@ def main() -> None:
     # Resolve output: CLI --output takes priority over GUI setting
     output_path = args.output or gui_output
 
+    # Auto-switch prompt for half-body mode
+    if cfg.half_body and args.prompt is None:
+        cfg.prompt = cfg.half_body_prompt
+
     print("=" * 60)
     print("  Realtime Live2D -- MVP Pipeline")
     print("=" * 60)

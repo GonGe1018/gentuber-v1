@@ -51,7 +51,14 @@ class Config:
     prompt: str = (
         "1girl, solo, blue hair, long hair, straight hair, hair between eyes, "
         "sailor collar, blue bow, pleated skirt, white thighhighs, "
-        "simple background, white background, "
+        "standing, full body, simple background, white background, "
+        "flat color, cel shading, anime coloring, clean lineart, "
+        "masterpiece, best quality, highres"
+    )
+    half_body_prompt: str = (
+        "1girl, solo, blue hair, long hair, straight hair, hair between eyes, "
+        "sailor collar, blue bow, "
+        "upper body, portrait, simple background, white background, "
         "flat color, cel shading, anime coloring, clean lineart, "
         "masterpiece, best quality, highres"
     )
