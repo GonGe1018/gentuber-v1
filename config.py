@@ -83,7 +83,7 @@ class Config:
     # Pose extraction
     # detect_hands=False saves ~6ms/frame (hand model skipped)
     detect_hands: bool = True
-    half_body: bool = False  # VTuber mode: upper body only (no legs in skeleton)
+    half_body: bool = True  # VTuber mode: upper body only (no legs in skeleton)
 
     # Temporal smoothing: blend ratio between prev and current frame
     #   0.0 = no smoothing (raw output)
