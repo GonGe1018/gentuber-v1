@@ -67,27 +67,33 @@ _MP_TO_OP = {
     26: 9,  # right knee
     27: 13,  # left ankle
     28: 10,  # right ankle
+    5: 14,  # right eye (MP right eye outer → OP right eye)
+    2: 15,  # left eye (MP left eye outer → OP left eye)
+    8: 16,  # right ear
+    7: 17,  # left ear
 }
 
-# OpenPose limb pairs
+# OpenPose limb pairs (0-indexed, matching ControlNet's draw_bodypose)
 _LIMBS = [
-    (0, 1),
-    (1, 2),
-    (2, 3),
-    (3, 4),
-    (1, 5),
-    (5, 6),
-    (6, 7),
-    (1, 8),
-    (8, 9),
-    (9, 10),
-    (1, 11),
-    (11, 12),
-    (12, 13),
-    (0, 14),
-    (14, 16),
-    (0, 15),
-    (15, 17),
+    (1, 2),  # neck → right shoulder
+    (1, 5),  # neck → left shoulder
+    (2, 3),  # right shoulder → right elbow
+    (3, 4),  # right elbow → right wrist
+    (5, 6),  # left shoulder → left elbow
+    (6, 7),  # left elbow → left wrist
+    (1, 8),  # neck → right hip
+    (8, 9),  # right hip → right knee
+    (9, 10),  # right knee → right ankle
+    (1, 11),  # neck → left hip
+    (11, 12),  # left hip → left knee
+    (12, 13),  # left knee → left ankle
+    (1, 0),  # neck → nose
+    (0, 14),  # nose → right eye
+    (14, 16),  # right eye → right ear
+    (0, 15),  # nose → left eye
+    (15, 17),  # left eye → left ear
+    (2, 16),  # right shoulder → right ear
+    (5, 17),  # left shoulder → left ear
 ]
 
 # Hand connections (21 landmarks)
