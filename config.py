@@ -9,16 +9,16 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     # Input: int for webcam index (e.g. 0), str for video file path
-    video_source: str = "assets/test_input.mp4"
+    video_source: str = "0"
 
     # Resolution presets (sdturbo_graph backend, RTX 5070 Ti):
     #   256x256 -> ~124 FPS  (fast, lower quality)
     #   384x384 -> ~73 FPS   (recommended balance)
     #   512x512 -> ~49 FPS   (highest quality)
-    capture_width: int = 384
-    capture_height: int = 384
-    output_width: int = 384
-    output_height: int = 384
+    capture_width: int = 256
+    capture_height: int = 256
+    output_width: int = 256
+    output_height: int = 256
 
     # Diffusion backend
     engine_backend: str = "ip_adapter"
