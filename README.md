@@ -126,9 +126,9 @@ Edit `config.py` for persistent defaults:
 cfg.video_source = 0                        # webcam
 cfg.engine_backend = "ip_adapter"           # best character consistency
 cfg.reference_image = "my_character.png"    # your character
-cfg.ip_adapter_scale = 0.5                  # character strength
-cfg.controlnet_conditioning_scale = 1.5     # pose strength
-cfg.temporal_feedback_strength = 0.3        # style coherence
+cfg.ip_adapter_scale = 0.6                  # character strength
+cfg.controlnet_conditioning_scale = 1.8     # pose strength
+cfg.temporal_feedback_strength = 0.2        # style coherence
 cfg.output_width = cfg.output_height = 384  # resolution
 ```
 
@@ -143,7 +143,7 @@ All models are downloaded automatically on first run to `~/.cache/huggingface/`:
 | `h94/IP-Adapter` (ip-adapter-plus_sd15) | ~98 MB | Character appearance preservation |
 | `h94/IP-Adapter` (image_encoder) | ~1.2 GB | CLIP ViT-H-14 (unloaded after caching) |
 | `lllyasviel/control_v11p_sd15_openpose` | ~361 MB | ControlNet OpenPose |
-| `TencentARC/t2iadapter_openpose_sd14v1` | ~77 MB | T2I-Adapter (lcm_graph backend) |
+| `TencentARC/t2iadapter_openpose_sd14v1` | ~77 MB | T2I-Adapter (legacy) |
 | `madebyollin/taesd` | ~5 MB | Tiny VAE decoder |
 | MediaPipe pose/hand models | ~14 MB | Pose estimation |
 
@@ -169,7 +169,10 @@ assets/
 
 | Branch | Description |
 |---|---|
-| `master` | Current — IP-Adapter + ControlNet + temporal feedback |
+| `master` | Current — IP-Adapter + ControlNet + latent feedback |
+| `dev/v0.0.7-latent-feedback` | Latent-level temporal feedback |
+| `dev/v0.0.6-vtuber-halfbody` | VTuber half-body mode |
+| `dev/v0.0.5-ip-adapter-gui` | IP-Adapter + GUI settings panel |
 | `dev/v0.0.3-reference-img2img` | Reference image img2img mode |
 | `dev/v0.0.2-source-img2img` | Camera frame img2img (StreamDiffusion style) |
 | `dev/v0.0.1-noise-based` | Pure noise + T2I-Adapter |
