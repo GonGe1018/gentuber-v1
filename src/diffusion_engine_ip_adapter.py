@@ -294,8 +294,11 @@ class DiffusionEngineIPAdapter:
 
         copy_stream = torch.cuda.Stream()
         prev_gpu_frame: torch.Tensor | None = None
-        prev_output_gpu: torch.Tensor | None = None
+        prev_latent: torch.Tensor | None = None  # latent-level feedback
         prev_ctrl_np: np.ndarray | None = None  # for motion detection
+
+        # Get scheduler for manual noise injection
+        scheduler = pipe_txt.scheduler
 
         while self._running:
             # Drain queue — keep freshest control map
@@ -358,10 +361,10 @@ class DiffusionEngineIPAdapter:
             pose_energy = float(np.abs(ctrl_np).mean())
             if pose_energy < pose_empty_threshold:
                 # No person detected → reset, next frame starts fresh
-                prev_output_gpu = None
+                prev_latent = None
                 prev_ctrl_np = None
 
-            if prev_ctrl_np is not None and prev_output_gpu is not None:
+            if prev_ctrl_np is not None and prev_latent is not None:
                 ctrl_diff = float(
                     np.abs(
                         ctrl_np.astype(np.float32) - prev_ctrl_np.astype(np.float32)
@@ -376,19 +379,9 @@ class DiffusionEngineIPAdapter:
 
             prev_ctrl_np = ctrl_np.copy()
 
-            # Compute total_steps for this frame's strength
-            desired_actual = 4
-            if adaptive_strength < 1.0:
-                total_steps = max(
-                    self._txt2img_steps,
-                    math.ceil(desired_actual / adaptive_strength),
-                )
-            else:
-                total_steps = self._txt2img_steps
-
             # ── GPU inference ─────────────────────────────────────────────
             with torch.inference_mode():
-                if prev_output_gpu is None or adaptive_strength >= 0.99:
+                if prev_latent is None or adaptive_strength >= 0.99:
                     # First frame or large motion: txt2img (full freedom)
                     result = pipe_txt(
                         prompt_embeds=self._prompt_embeds,
@@ -401,25 +394,60 @@ class DiffusionEngineIPAdapter:
                         width=self._W,
                         height=self._H,
                         latents=fixed_latents.clone(),
-                        output_type="pt",
+                        output_type="latent",
                     )
+                    denoised_latent = result.images
                 else:
-                    # Subsequent frames: img2img with adaptive strength
-                    result = pipe_img(
-                        prompt_embeds=self._prompt_embeds,
-                        negative_prompt_embeds=self._neg_embeds,
-                        image=prev_output_gpu,
-                        control_image=ctrl_tensor,
-                        ip_adapter_image_embeds=self._ip_embeds,
-                        strength=adaptive_strength,
-                        num_inference_steps=total_steps,
-                        guidance_scale=cfg.guidance_scale,
-                        controlnet_conditioning_scale=self._cn_scale,
-                        output_type="pt",
+                    # Latent-level feedback: add noise to prev latent directly
+                    # (bypasses VAE encode → no color drift)
+                    actual_steps = self._txt2img_steps  # 4 steps
+
+                    # Set timesteps for actual_steps
+                    scheduler.set_timesteps(actual_steps, device=self._device)
+                    timesteps = scheduler.timesteps
+
+                    # Pick starting timestep based on adaptive_strength
+                    # strength=0.3 → start late (low noise, preserve prev)
+                    # strength=0.85 → start early (high noise, more freedom)
+                    start_idx = max(
+                        0,
+                        len(timesteps)
+                        - max(1, round(actual_steps * adaptive_strength)),
+                    )
+                    start_timestep = timesteps[start_idx]
+
+                    # Add noise to previous latent at the starting timestep
+                    noise = torch.randn_like(prev_latent)
+                    noised_latent = scheduler.add_noise(
+                        prev_latent, noise, start_timestep
                     )
 
-            gpu_frame = result.images
-            prev_output_gpu = gpu_frame
+                    # Run txt2img with noised latent — runs actual_steps total
+                    # but latent already partially denoised, so early steps
+                    # refine rather than generate from scratch
+                    result = pipe_txt(
+                        prompt_embeds=self._prompt_embeds,
+                        negative_prompt_embeds=self._neg_embeds,
+                        image=ctrl_tensor,
+                        ip_adapter_image_embeds=self._ip_embeds,
+                        num_inference_steps=actual_steps,
+                        guidance_scale=cfg.guidance_scale,
+                        controlnet_conditioning_scale=self._cn_scale,
+                        width=self._W,
+                        height=self._H,
+                        latents=noised_latent,
+                        output_type="latent",
+                    )
+                    denoised_latent = result.images
+
+                # Save latent for next frame (no VAE encode needed)
+                prev_latent = denoised_latent.detach()
+
+                # VAE decode for display only
+                decoded = pipe_txt.vae.decode(
+                    denoised_latent / pipe_txt.vae.config.scaling_factor
+                ).sample
+                gpu_frame = (decoded / 2 + 0.5).clamp(0, 1)
 
             # ── Async D2H copy ────────────────────────────────────────────
             if prev_gpu_frame is not None:
