@@ -42,11 +42,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config import cfg
 from src.capture import VideoCapture
-from src.diffusion_engine import DiffusionEngine
-from src.diffusion_engine_t2i import DiffusionEngineT2I
-from src.diffusion_engine_sdturbo import DiffusionEngineSDTurbo
-from src.diffusion_engine_sdturbo_graph import DiffusionEngineSDTurboGraph
-from src.diffusion_engine_lcm_graph import DiffusionEngineLCMGraph
+from src.diffusion_engine_ip_adapter import DiffusionEngineIPAdapter
 from src.interpolator import FrameInterpolator
 from src.pose_extractor import PoseExtractor
 from src.renderer import Renderer
@@ -86,16 +82,9 @@ def parse_args():
     )
     p.add_argument(
         "--backend",
-        choices=[
-            "ip_adapter",
-            "lcm_graph",
-            "sdturbo_graph",
-            "sdturbo",
-            "t2i",
-            "controlnet",
-        ],
+        choices=["ip_adapter"],
         default=None,
-        help="ip_adapter (~6-8 FPS, best character), lcm_graph (~60 FPS), sdturbo_graph (~63 FPS), sdturbo (~27 FPS), t2i (~27 FPS), controlnet (~20 FPS)",
+        help="Diffusion backend (default: ip_adapter)",
     )
     p.add_argument(
         "--size",
@@ -341,27 +330,6 @@ def main() -> None:
         engine = DiffusionEngineIPAdapter(
             cfg=cfg, in_queue=pose_queue, out_queue=out_queue
         )
-    elif cfg.engine_backend == "lcm_graph":
-        from src.diffusion_engine_lcm_graph import ANIME_MODEL_ID
-
-        engine = DiffusionEngineLCMGraph(
-            cfg=cfg,
-            in_queue=pose_queue,
-            out_queue=out_queue,
-            model_id=getattr(cfg, "lcm_model_id", None) or ANIME_MODEL_ID,
-        )
-    elif cfg.engine_backend == "sdturbo_graph":
-        engine = DiffusionEngineSDTurboGraph(
-            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
-        )
-    elif cfg.engine_backend == "sdturbo":
-        engine = DiffusionEngineSDTurbo(
-            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
-        )
-    elif cfg.engine_backend == "t2i":
-        engine = DiffusionEngineT2I(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
-    else:
-        engine = DiffusionEngine(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
 
     # Load + warmup models (blocks until ready)

@@ -42,14 +42,7 @@ SETTINGS_SCHEMA = [
                 "label": "Backend",
                 "type": "combo",
                 "default": "ip_adapter",
-                "options": [
-                    "ip_adapter",
-                    "lcm_graph",
-                    "sdturbo_graph",
-                    "sdturbo",
-                    "t2i",
-                    "controlnet",
-                ],
+                "options": ["ip_adapter"],
             },
             {
                 "key": "output_size",

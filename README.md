@@ -18,9 +18,9 @@ Each stage runs in its own thread with bounded queues — latency never accumula
 ## Key Features
 
 - **IP-Adapter + ControlNet**: Character appearance and pose are controlled through independent paths. No conflict between style preservation and pose accuracy.
-- **Temporal Feedback**: Previous frame feeds into the next generation for consistent style across frames.
+- **Temporal Feedback**: Previous frame's latent feeds into the next generation for consistent style across frames.
 - **Fixed Noise**: Same latent tensor reused every frame so only pose changes affect the output.
-- **Multiple Backends**: From ~5 FPS (best quality) to ~73 FPS (fastest), pick your tradeoff.
+- **Half-Body (VTuber) Mode**: Upper body only skeleton for VTuber-style bust shots.
 - **Headless Recording**: `--output result.mp4` processes a video file and saves the result without GUI.
 
 ## Requirements
@@ -54,16 +54,13 @@ uv run live2d --source 0 --reference my_character.png
 
 ## Backends
 
-| Backend | FPS (384px) | Character Consistency | Pose Accuracy | Use Case |
-|---|---|---|---|---|
-| `ip_adapter` | ~5-17 | Best | Good | Character-driven animation |
-| `lcm_graph` | ~60 | Low | Good | Fast prototyping |
-| `sdturbo_graph` | ~63 | Low | Good | Fast prototyping |
-| `controlnet` | ~19 | Medium | Good | ControlNet experiments |
-| `sdturbo` | ~25 | Low | Good | Eager mode debugging |
-| `t2i` | ~25 | Low | Good | T2I-Adapter experiments |
+The default (and only active) backend is `ip_adapter` — IP-Adapter Plus for character appearance + ControlNet for pose + LCM-LoRA for speed + latent-level temporal feedback.
 
-The `ip_adapter` backend uses IP-Adapter Plus for character appearance + ControlNet for pose + LCM-LoRA for speed + temporal feedback from the previous frame.
+| Backend | FPS (384px) | Description |
+|---|---|---|
+| `ip_adapter` | ~13 | Character-driven animation with latent feedback |
+
+> Legacy backends (lcm_graph, sdturbo_graph, controlnet, etc.) are archived in `src/legacy/`. See [src/legacy/README.md](src/legacy/README.md).
 
 ## CLI Reference
 
@@ -72,15 +69,15 @@ The `ip_adapter` backend uses IP-Adapter Plus for character appearance + Control
 | `--source` | `assets/test_input.mp4` | Video file path or webcam index (0, 1, ...) |
 | `--output`, `-o` | — | Save to MP4 and exit (headless, no GUI) |
 | `--reference` | `assets/reference.png` | Character reference image for IP-Adapter |
-| `--backend` | `ip_adapter` | `ip_adapter` / `lcm_graph` / `sdturbo_graph` / `sdturbo` / `t2i` / `controlnet` |
-| `--steps` | `1` (4 for ip_adapter) | Inference steps |
+| `--backend` | `ip_adapter` | Diffusion backend |
+| `--steps` | `4` | Inference steps |
 | `--size` | `384` | Output resolution: `256` / `384` / `512` |
 | `--ip-scale` | `0.5` | IP-Adapter strength (0.3=light, 0.7=strong character) |
-| `--cn-scale` | `1.5` | ControlNet pose strength |
+| `--cn-scale` | `2.0` | ControlNet pose strength |
 | `--feedback` | `0.3` | Temporal feedback (0.3=strong coherence, 1.0=no feedback) |
-| `--strength` | `0.5` | img2img strength for legacy backends |
 | `--seed` | `42` | Noise seed (-1 = random) |
 | `--prompt` | see config.py | Generation prompt |
+| `--half-body` | off | VTuber mode: upper body only |
 | `--quality` | — | Preset: `fast` / `balanced` / `quality` |
 | `--max-fps` | `60` | Display refresh cap |
 | `--no-skeleton` | off | Hide skeleton overlay |
@@ -94,7 +91,7 @@ The `ip_adapter` backend uses IP-Adapter Plus for character appearance + Control
 uv run live2d --source 0 --ip-scale 0.6 --cn-scale 1.0
 
 # Strong pose following, lighter character
-uv run live2d --source 0 --ip-scale 0.4 --cn-scale 1.5
+uv run live2d --source 0 --ip-scale 0.4 --cn-scale 2.0
 
 # No temporal feedback (each frame independent)
 uv run live2d --source 0 --feedback 1.0
@@ -102,24 +99,24 @@ uv run live2d --source 0 --feedback 1.0
 # Batch process a dance video
 uv run live2d --source dance.mp4 -o dance_anime.mp4 --steps 4
 
-# Fast backend for prototyping (~60 FPS)
-uv run live2d --source 0 --backend lcm_graph
+# VTuber half-body mode
+uv run live2d --source 0 --half-body
 ```
 
 ## How IP-Adapter Backend Works
 
 ```
-Frame 1:  Fixed noise → UNet + ControlNet(pose₁) + IP-Adapter(character) → Output₁
+Frame 1:  Fixed noise → UNet + ControlNet(pose₁) + IP-Adapter(character) → Latent₁ → Decode → Output₁
                                                                               ↓
-Frame 2:  Output₁ + noise → UNet + ControlNet(pose₂) + IP-Adapter(character) → Output₂
+Frame 2:  Latent₁ + noise → UNet + ControlNet(pose₂) + IP-Adapter(character) → Latent₂ → Decode → Output₂
                                                                                   ↓
-Frame 3:  Output₂ + noise → UNet + ControlNet(pose₃) + IP-Adapter(character) → Output₃
+Frame 3:  Latent₂ + noise → UNet + ControlNet(pose₃) + IP-Adapter(character) → Latent₃ → Decode → Output₃
 ```
 
 - **IP-Adapter Plus**: Injects character appearance via CLIP patch embeddings into cross-attention (cached at startup, zero per-frame cost)
 - **ControlNet**: Guides pose via OpenPose skeleton at every denoising step
-- **Temporal Feedback**: Previous output feeds back as img2img input, preserving style continuity
-- **Fixed Noise**: First frame uses a deterministic latent for reproducible baseline
+- **Latent Feedback**: Previous frame's latent reused directly (no VAE encode cycle → no color drift)
+- **Adaptive Motion**: Small motion = fewer denoise steps (fast), large motion = full txt2img reset (clean)
 
 ## Configuration
 
@@ -157,15 +154,12 @@ main.py                                  # Pipeline orchestration + CLI
 config.py                                # All tunable parameters
 src/
   diffusion_engine_ip_adapter.py         # IP-Adapter + ControlNet + LCM (default)
-  diffusion_engine_lcm_graph.py          # KohakuV2 + LCM-LoRA + CUDA graph
-  diffusion_engine_sdturbo_graph.py      # SD-Turbo + T2I-Adapter + CUDA graph
-  diffusion_engine.py                    # LCM + ControlNet (eager)
-  diffusion_engine_t2i.py               # LCM + T2I-Adapter (eager)
-  diffusion_engine_sdturbo.py            # SD-Turbo + T2I-Adapter (eager)
   capture.py                             # Threaded video capture (FPS-synced)
   pose_extractor.py                      # MediaPipe → OpenPose skeleton
   interpolator.py                        # Temporal frame blending
   renderer.py                            # OpenCV display + FPS overlay
+  settings_gui.py                        # Tkinter settings panel
+  legacy/                                # Archived backends (see legacy/README.md)
 assets/
   reference.png                          # Default character reference
   models/                                # MediaPipe model files
