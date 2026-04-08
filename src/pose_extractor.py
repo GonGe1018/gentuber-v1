@@ -228,6 +228,18 @@ class PoseExtractor:
 
             kp["body"] = joints
 
+            # Head joints need thicker lines for ControlNet to detect direction
+            _HEAD_JOINTS = {0, 14, 15, 16, 17}  # nose, eyes, ears
+            _HEAD_LIMBS = {
+                (1, 0),
+                (0, 14),
+                (14, 16),
+                (0, 15),
+                (15, 17),
+                (2, 16),
+                (5, 17),
+            }
+
             for a, b in _LIMBS:
                 # Skip lower body limbs in half_body mode
                 if self._half_body and (
@@ -236,13 +248,18 @@ class PoseExtractor:
                     continue
                 if a in joints and b in joints:
                     color = _POSE_COLORS[a % len(_POSE_COLORS)]
-                    cv2.line(canvas, joints[a], joints[b], color, 3, cv2.LINE_AA)
+                    # Thicker lines for head area so ControlNet reads direction
+                    thickness = 6 if (a, b) in _HEAD_LIMBS else 3
+                    cv2.line(
+                        canvas, joints[a], joints[b], color, thickness, cv2.LINE_AA
+                    )
 
             for idx, (px, py) in joints.items():
                 if self._half_body and idx in self._lower_body_joints:
                     continue
                 color = _POSE_COLORS[idx % len(_POSE_COLORS)]
-                cv2.circle(canvas, (px, py), 5, color, -1, cv2.LINE_AA)
+                radius = 8 if idx in _HEAD_JOINTS else 5
+                cv2.circle(canvas, (px, py), radius, color, -1, cv2.LINE_AA)
 
         # ── Hands ─────────────────────────────────────────────────────────────
         if self._hands is not None:
