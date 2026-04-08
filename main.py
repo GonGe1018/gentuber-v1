@@ -323,13 +323,9 @@ def main() -> None:
         detect_hands=cfg.detect_hands,
         half_body=cfg.half_body,
     )
-    # Select engine backend from config
-    if cfg.engine_backend == "ip_adapter":
-        from src.diffusion_engine_ip_adapter import DiffusionEngineIPAdapter
-
-        engine = DiffusionEngineIPAdapter(
-            cfg=cfg, in_queue=pose_queue, out_queue=out_queue
-        )
+    # Select engine backend (ip_adapter only, force override legacy settings)
+    cfg.engine_backend = "ip_adapter"
+    engine = DiffusionEngineIPAdapter(cfg=cfg, in_queue=pose_queue, out_queue=out_queue)
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
 
     # Load + warmup models (blocks until ready)
