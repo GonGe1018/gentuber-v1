@@ -95,7 +95,6 @@ uv run gentuber --source 0 --reference my_character.png
 | `--motion-lo` | `0.008` | 적응형 모션: 떨림 임계값 |
 | `--motion-hi` | `0.04` | 적응형 모션: 큰 움직임 리셋 임계값 |
 | `--motion-max` | `0.85` | 적응형 모션: 최대 피드백 강도 상한 |
-| `--reset-every` | `30` | N프레임마다 주기적 전체 리셋 (0=비활성) |
 
 ## 사용 예시
 
