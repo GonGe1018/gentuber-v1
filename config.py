@@ -33,15 +33,15 @@ class Config:
     guidance_scale: float = 1.2
 
     prompt: str = (
-        "1girl, solo, blue hair, long hair, straight hair, hair between eyes, "
-        "sailor collar, blue bow, pleated skirt, white thighhighs, "
+        "1girl, solo, black hair, short hair, bob cut, straight bangs, "
+        "white collared shirt, red bow tie, dark brown pleated skirt, "
         "standing, full body, simple background, white background, "
         "flat color, cel shading, anime coloring, clean lineart, "
         "masterpiece, best quality, highres"
     )
     half_body_prompt: str = (
-        "1girl, solo, blue hair, long hair, straight hair, hair between eyes, "
-        "sailor collar, blue bow, "
+        "1girl, solo, black hair, short hair, bob cut, straight bangs, "
+        "white collared shirt, red bow tie, "
         "upper body, portrait, simple background, white background, "
         "flat color, cel shading, anime coloring, clean lineart, "
         "masterpiece, best quality, highres"
@@ -50,7 +50,8 @@ class Config:
         "lowres, bad anatomy, bad hands, missing fingers, extra digits, "
         "blurry, low quality, worst quality, normal quality, "
         "realistic, 3d, photo, watermark, signature, text, "
-        "hair blowing, wind, floating hair, messy hair, hair movement, "
+        "long hair, flowing hair, hair blowing, wind, floating hair, messy hair, "
+        "blue hair, sailor collar, sailor uniform, "
         "glowing, lens flare, light particles, sparkle, bloom, "
         "gradient background, detailed background, scenery, outdoors, "
         "multiple girls, extra limbs, deformed, ugly, duplicate"
