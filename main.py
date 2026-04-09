@@ -178,6 +178,12 @@ def parse_args():
         help="Adaptive motion: max feedback strength cap (default: 0.85)",
     )
     p.add_argument(
+        "--reset-every",
+        type=int,
+        default=None,
+        help="Periodic full reset every N frames to prevent latent drift (0=disabled, default: 30)",
+    )
+    p.add_argument(
         "--output",
         "-o",
         default=None,
@@ -313,6 +319,8 @@ def main() -> None:
         cfg.motion_hi = max(0.0, args.motion_hi)
     if args.motion_max is not None:
         cfg.motion_max_strength = max(0.0, min(1.0, args.motion_max))
+    if args.reset_every is not None:
+        cfg.periodic_reset_frames = max(0, args.reset_every)
 
     # Resolve output: CLI --output takes priority over GUI setting
     output_path = args.output or gui_output

@@ -296,6 +296,8 @@ class DiffusionEngineIPAdapter:
         prev_gpu_frame: torch.Tensor | None = None
         prev_latent: torch.Tensor | None = None  # latent-level feedback
         prev_ctrl_np: np.ndarray | None = None  # for motion detection
+        frame_count: int = 0  # for periodic reset
+        periodic_reset = cfg.periodic_reset_frames
 
         # Get scheduler for manual noise injection
         scheduler = pipe_txt.scheduler
@@ -363,6 +365,11 @@ class DiffusionEngineIPAdapter:
                 # No person detected → reset, next frame starts fresh
                 prev_latent = None
                 prev_ctrl_np = None
+
+            # Periodic reset to prevent latent drift
+            frame_count += 1
+            if periodic_reset > 0 and frame_count % periodic_reset == 0:
+                prev_latent = None
 
             if prev_ctrl_np is not None and prev_latent is not None:
                 ctrl_diff = float(

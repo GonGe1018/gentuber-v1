@@ -121,6 +121,14 @@ SETTINGS_SCHEMA = [
                 "min": 0.3,
                 "max": 1.0,
             },
+            {
+                "key": "periodic_reset_frames",
+                "label": "Reset Every N Frames",
+                "type": "int_slider",
+                "default": 30,
+                "min": 0,
+                "max": 120,
+            },
         ],
     },
     {
@@ -563,6 +571,8 @@ def apply_gui_settings(settings: dict, cfg) -> str | None:
         cfg.motion_hi = float(settings["motion_hi"])
     if "motion_max_strength" in settings:
         cfg.motion_max_strength = float(settings["motion_max_strength"])
+    if "periodic_reset_frames" in settings:
+        cfg.periodic_reset_frames = int(settings["periodic_reset_frames"])
     if "show_skeleton_overlay" in settings:
         cfg.show_skeleton_overlay = bool(settings["show_skeleton_overlay"])
     if "show_fps" in settings:
