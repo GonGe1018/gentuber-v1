@@ -137,7 +137,7 @@ cfg.reference_image = "my_character.png"    # 캐릭터 이미지
 cfg.ip_adapter_scale = 0.6                  # 캐릭터 강도
 cfg.controlnet_conditioning_scale = 1.8     # 포즈 강도
 cfg.temporal_feedback_strength = 0.2        # 스타일 일관성
-cfg.output_width = cfg.output_height = 384  # 해상도
+cfg.output_width = cfg.output_height = 256  # 해상도
 ```
 
 ## 모델

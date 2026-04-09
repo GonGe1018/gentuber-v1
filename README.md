@@ -137,7 +137,7 @@ cfg.reference_image = "my_character.png"    # your character
 cfg.ip_adapter_scale = 0.6                  # character strength
 cfg.controlnet_conditioning_scale = 1.8     # pose strength
 cfg.temporal_feedback_strength = 0.2        # style coherence
-cfg.output_width = cfg.output_height = 384  # resolution
+cfg.output_width = cfg.output_height = 256  # resolution
 ```
 
 ## Models
