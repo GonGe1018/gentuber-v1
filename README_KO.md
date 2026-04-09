@@ -92,6 +92,9 @@ uv run gentuber --source 0 --reference my_character.png
 | `--no-skeleton` | off | 스켈레톤 오버레이 숨김 |
 | `--no-interp` | off | 시간적 스무딩 비활성화 |
 | `--no-hands` | off | 손 감지 건너뛰기 |
+| `--motion-lo` | `0.008` | 적응형 모션: 떨림 임계값 |
+| `--motion-hi` | `0.04` | 적응형 모션: 큰 움직임 리셋 임계값 |
+| `--motion-max` | `0.85` | 적응형 모션: 최대 피드백 강도 상한 |
 
 ## 사용 예시
 

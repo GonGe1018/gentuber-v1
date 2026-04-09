@@ -92,6 +92,9 @@ The default (and only active) backend is `ip_adapter` — IP-Adapter Plus for ch
 | `--no-skeleton` | off | Hide skeleton overlay |
 | `--no-interp` | off | Disable temporal smoothing |
 | `--no-hands` | off | Skip hand detection |
+| `--motion-lo` | `0.008` | Adaptive motion: jitter threshold |
+| `--motion-hi` | `0.04` | Adaptive motion: large motion reset threshold |
+| `--motion-max` | `0.85` | Adaptive motion: max feedback strength cap |
 
 ## Examples
 
