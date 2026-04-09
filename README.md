@@ -6,10 +6,7 @@ Real-time anime character animation driven by webcam or video input. Your body m
 
 ## Demo
 
-```bash
-# Generate side-by-side demo (Source | Skeleton | Generated)
-uv run gentuber --no-gui --source input.mp4 --output demo.mp4 --half-body
-```
+![demo](assets/demo.gif)
 
 ~13 FPS on RTX 5070 Ti at 256px
 

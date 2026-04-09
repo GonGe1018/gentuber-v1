@@ -13,7 +13,9 @@ __pycache__/
 # Assets (generated)
 assets/**/*.mp4
 assets/**/*.png
+assets/**/*.gif
 !assets/reference.png
+!assets/demo.gif
 assets/models/
 
 # User settings

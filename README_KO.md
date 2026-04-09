@@ -6,10 +6,7 @@
 
 ## 데모
 
-```bash
-# Side-by-side 데모 생성 (Source | Skeleton | Generated)
-uv run gentuber --no-gui --source input.mp4 --output demo.mp4 --half-body
-```
+![demo](assets/demo.gif)
 
 RTX 5070 Ti 기준 256px에서 ~13 FPS
 
