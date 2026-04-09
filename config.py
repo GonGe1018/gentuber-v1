@@ -66,7 +66,7 @@ class Config:
 
     # Pose extraction
     detect_hands: bool = True
-    half_body: bool = True  # VTuber mode: upper body only
+    half_body: bool = False  # VTuber mode: upper body only
 
     # Temporal smoothing (disabled by default — no_interp=true)
     interp_alpha: float = 0.3
