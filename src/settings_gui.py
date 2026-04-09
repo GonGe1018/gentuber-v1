@@ -48,7 +48,7 @@ SETTINGS_SCHEMA = [
                 "key": "output_size",
                 "label": "Resolution",
                 "type": "combo",
-                "default": "384",
+                "default": "256",
                 "options": ["256", "384", "512"],
             },
             {
