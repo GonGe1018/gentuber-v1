@@ -557,6 +557,12 @@ def apply_gui_settings(settings: dict, cfg) -> str | None:
         cfg.guidance_scale = float(settings["guidance_scale"])
     if "temporal_feedback_strength" in settings:
         cfg.temporal_feedback_strength = float(settings["temporal_feedback_strength"])
+    if "motion_lo" in settings:
+        cfg.motion_lo = float(settings["motion_lo"])
+    if "motion_hi" in settings:
+        cfg.motion_hi = float(settings["motion_hi"])
+    if "motion_max_strength" in settings:
+        cfg.motion_max_strength = float(settings["motion_max_strength"])
     if "show_skeleton_overlay" in settings:
         cfg.show_skeleton_overlay = bool(settings["show_skeleton_overlay"])
     if "show_fps" in settings:
