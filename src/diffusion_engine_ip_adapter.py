@@ -427,8 +427,12 @@ class DiffusionEngineIPAdapter:
                     # IP-Adapter embeds must be passed as list of tensors
                     if do_cfg:
                         ip_embeds_loop = self._ip_embeds
+                        prompt_embeds_cfg = torch.cat(
+                            [self._neg_embeds, self._prompt_embeds]
+                        )
                     else:
                         ip_embeds_loop = [e[:1] for e in self._ip_embeds]
+                        prompt_embeds_cfg = self._prompt_embeds
 
                     for i, t in enumerate(run_timesteps):
                         latent_input = torch.cat([latent] * 2) if do_cfg else latent
@@ -441,7 +445,7 @@ class DiffusionEngineIPAdapter:
                         down_samples, mid_sample = pipe_txt.controlnet(
                             latent_input,
                             t,
-                            encoder_hidden_states=self._prompt_embeds,
+                            encoder_hidden_states=prompt_embeds_cfg,
                             controlnet_cond=ctrl_input,
                             conditioning_scale=self._cn_scale,
                             return_dict=False,
@@ -452,7 +456,7 @@ class DiffusionEngineIPAdapter:
                         noise_pred = pipe_txt.unet(
                             latent_input,
                             t,
-                            encoder_hidden_states=self._prompt_embeds,
+                            encoder_hidden_states=prompt_embeds_cfg,
                             down_block_additional_residuals=down_samples,
                             mid_block_additional_residual=mid_sample,
                             added_cond_kwargs=added_cond_kwargs,
