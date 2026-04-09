@@ -95,6 +95,7 @@ The default (and only active) backend is `ip_adapter` — IP-Adapter Plus for ch
 | `--motion-lo` | `0.008` | Adaptive motion: jitter threshold |
 | `--motion-hi` | `0.04` | Adaptive motion: large motion reset threshold |
 | `--motion-max` | `0.85` | Adaptive motion: max feedback strength cap |
+| `--reset-every` | `30` | Periodic full reset every N frames (0=disabled) |
 
 ## Examples
 
