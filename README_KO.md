@@ -6,9 +6,9 @@
 
 ## 데모
 
-https://github.com/user-attachments/assets/demo_sidebyside_mixkit.mp4
+https://github.com/GonGe1018/gentuber-v1/raw/master/assets/demo_sidebyside_mixkit.mp4
 
-https://github.com/user-attachments/assets/demo_sidebyside_pexels.mp4
+https://github.com/GonGe1018/gentuber-v1/raw/master/assets/demo_sidebyside_pexels.mp4
 
 Source → Skeleton → Generated (256px, RTX 5070 Ti 기준 ~13 FPS)
 
