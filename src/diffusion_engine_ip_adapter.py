@@ -99,6 +99,7 @@ class DiffusionEngineIPAdapter:
             weight_name=ip_weight,
         )
         pipe_txt.set_ip_adapter_scale(ip_scale)
+        self._last_ip_scale = ip_scale
 
         # ── 2b. img2img pipeline (shares components with txt2img) ─────────
         print("[IPAdapter] Creating img2img pipeline …")
@@ -283,13 +284,12 @@ class DiffusionEngineIPAdapter:
             generator=generator,
         )
 
-        # Adaptive feedback parameters
-        base_strength = self._feedback_strength  # 0.3 = default minimum
+        # Adaptive feedback parameters (read from cfg each frame below)
+        # Initial values cached for first iteration
+        base_strength = self._feedback_strength
         max_strength = cfg.motion_max_strength
-        # ctrl_diff thresholds (measured: jitter ~0.005, small move ~0.01, big move ~0.025)
         motion_lo = cfg.motion_lo
         motion_hi = cfg.motion_hi
-        # If control map is nearly empty (person left), reset
         pose_empty_threshold = cfg.pose_empty_threshold
 
         copy_stream = torch.cuda.Stream()
@@ -358,6 +358,20 @@ class DiffusionEngineIPAdapter:
             torch.cuda.current_stream().wait_stream(self._transfer_stream)
 
             # ── Adaptive feedback: measure motion ─────────────────────────
+            # Re-read tunable params from cfg (live tuning panel may change them)
+            base_strength = cfg.temporal_feedback_strength
+            max_strength = cfg.motion_max_strength
+            motion_lo = cfg.motion_lo
+            motion_hi = cfg.motion_hi
+            pose_empty_threshold = cfg.pose_empty_threshold
+            self._cn_scale = cfg.controlnet_conditioning_scale
+
+            # Live-update IP-Adapter scale if changed
+            new_ip_scale = cfg.ip_adapter_scale
+            if new_ip_scale != self._last_ip_scale:
+                pipe_txt.set_ip_adapter_scale(new_ip_scale)
+                self._last_ip_scale = new_ip_scale
+
             pose_energy = float(np.abs(ctrl_np).mean())
             if pose_energy < pose_empty_threshold:
                 # No person detected → reset, next frame starts fresh

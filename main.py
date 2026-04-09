@@ -355,6 +355,13 @@ def main() -> None:
     # Load + warmup models (blocks until ready)
     engine.load()
 
+    # Launch runtime tuning panel (separate tkinter thread)
+    if not args.output:  # only in GUI/live mode, not batch rendering
+        from src.tuning_panel import TuningPanel
+
+        tuning = TuningPanel(cfg)
+        tuning.start()
+
     stop_event = threading.Event()
     capture.start()
 
