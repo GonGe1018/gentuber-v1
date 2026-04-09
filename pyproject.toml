@@ -1,7 +1,7 @@
 [project]
-name = "realtime-live2d"
+name = "gentuber-v1"
 version = "0.1.0"
-description = "Real-time anime character animation from video/webcam using pose-conditioned diffusion"
+description = "Real-time AI VTuber animation from video/webcam using pose-conditioned diffusion"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.7.0",
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-live2d = "main:main"
+gentuber = "main:main"
 
 # Torch cu128 wheels are pinned to exact URLs to avoid PyTorch index hash
 # instability (the index updates wheels in-place without bumping versions).

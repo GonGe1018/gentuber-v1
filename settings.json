@@ -12,6 +12,7 @@
   "show_skeleton_overlay": true,
   "show_fps": true,
   "detect_hands": true,
+  "half_body": false,
   "no_interp": true,
   "interp_alpha": 0.3,
   "output_file": ""

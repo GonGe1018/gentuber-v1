@@ -24,7 +24,7 @@ class Renderer:
 
     def __init__(
         self,
-        title: str = "Realtime Live2D",
+        title: str = "GenTuber v1",
         show_fps: bool = True,
         show_skeleton: bool = True,
         skeleton_alpha: float = 0.25,

@@ -1,5 +1,5 @@
 """
-main.py -- Pipeline orchestration for realtime-live2d.
+main.py -- Pipeline orchestration for gentuber-v1.
 
 Thread layout
 ─────────────
@@ -49,7 +49,7 @@ from src.renderer import Renderer
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Realtime Live2D pipeline")
+    p = argparse.ArgumentParser(description="GenTuber v1 pipeline")
     p.add_argument(
         "--source",
         default=None,
@@ -298,7 +298,7 @@ def main() -> None:
         cfg.prompt = cfg.half_body_prompt
 
     print("=" * 60)
-    print("  Realtime Live2D -- MVP Pipeline")
+    print("  GenTuber v1")
     print("=" * 60)
     print(f"  Source  : {cfg.video_source}")
     print(f"  Device  : {cfg.device}  dtype={cfg.dtype}")

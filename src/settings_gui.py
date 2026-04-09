@@ -204,7 +204,7 @@ class SettingsGUI:
         self._history = _load_history()
 
         root = tk.Tk()
-        root.title("Realtime Live2D - Settings")
+        root.title("GenTuber v1 - Settings")
         root.resizable(False, False)
 
         # Dark theme

@@ -1,4 +1,4 @@
-# Realtime Live2D
+# GenTuber v1
 
 [한국어](README_KO.md)
 
@@ -32,8 +32,8 @@ Each stage runs in its own thread with bounded queues — latency never accumula
 ## Setup
 
 ```bash
-git clone https://github.com/GonGe1018/realtime-live2d
-cd realtime-live2d
+git clone https://github.com/GonGe1018/gentuber-v1
+cd gentuber-v1
 uv sync
 ```
 
@@ -43,13 +43,13 @@ All dependencies including PyTorch CUDA wheels are resolved automatically by `uv
 
 ```bash
 # Webcam (real-time, default IP-Adapter backend)
-uv run live2d --source 0
+uv run gentuber --source 0
 
 # Video file → MP4 output (no GUI)
-uv run live2d --source input.mp4 --output result.mp4
+uv run gentuber --source input.mp4 --output result.mp4
 
 # Use a custom character reference image
-uv run live2d --source 0 --reference my_character.png
+uv run gentuber --source 0 --reference my_character.png
 ```
 
 ## Backends
@@ -88,19 +88,19 @@ The default (and only active) backend is `ip_adapter` — IP-Adapter Plus for ch
 
 ```bash
 # Strong character preservation, moderate pose
-uv run live2d --source 0 --ip-scale 0.6 --cn-scale 1.0
+uv run gentuber --source 0 --ip-scale 0.6 --cn-scale 1.0
 
 # Strong pose following, lighter character
-uv run live2d --source 0 --ip-scale 0.4 --cn-scale 2.0
+uv run gentuber --source 0 --ip-scale 0.4 --cn-scale 2.0
 
 # No temporal feedback (each frame independent)
-uv run live2d --source 0 --feedback 1.0
+uv run gentuber --source 0 --feedback 1.0
 
 # Batch process a dance video
-uv run live2d --source dance.mp4 -o dance_anime.mp4 --steps 4
+uv run gentuber --source dance.mp4 -o dance_anime.mp4 --steps 4
 
 # VTuber half-body mode
-uv run live2d --source 0 --half-body
+uv run gentuber --source 0 --half-body
 ```
 
 ## How IP-Adapter Backend Works

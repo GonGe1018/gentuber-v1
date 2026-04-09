@@ -1,5 +1,5 @@
 """
-Central configuration for the realtime-live2d pipeline.
+Central configuration for the gentuber-v1 pipeline.
 Edit values here to tune performance vs quality trade-offs.
 """
 
@@ -102,7 +102,7 @@ class Config:
     # Display
     show_skeleton_overlay: bool = True
     show_fps: bool = True
-    window_title: str = "Realtime Live2D"
+    window_title: str = "GenTuber v1"
 
 
 cfg = Config()

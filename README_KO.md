@@ -1,4 +1,4 @@
-# Realtime Live2D
+# GenTuber v1
 
 [English](README.md)
 
@@ -32,8 +32,8 @@
 ## 설치
 
 ```bash
-git clone https://github.com/GonGe1018/realtime-live2d
-cd realtime-live2d
+git clone https://github.com/GonGe1018/gentuber-v1
+cd gentuber-v1
 uv sync
 ```
 
@@ -43,13 +43,13 @@ uv sync
 
 ```bash
 # 웹캠 실시간 (기본 IP-Adapter 백엔드)
-uv run live2d --source 0
+uv run gentuber --source 0
 
 # 영상 파일 → MP4 저장 (GUI 없음)
-uv run live2d --source input.mp4 --output result.mp4
+uv run gentuber --source input.mp4 --output result.mp4
 
 # 커스텀 캐릭터 레퍼런스 이미지 사용
-uv run live2d --source 0 --reference my_character.png
+uv run gentuber --source 0 --reference my_character.png
 ```
 
 ## 백엔드
@@ -88,19 +88,19 @@ uv run live2d --source 0 --reference my_character.png
 
 ```bash
 # 강한 캐릭터 보존, 적당한 포즈
-uv run live2d --source 0 --ip-scale 0.6 --cn-scale 1.0
+uv run gentuber --source 0 --ip-scale 0.6 --cn-scale 1.0
 
 # 강한 포즈 반영, 약한 캐릭터
-uv run live2d --source 0 --ip-scale 0.4 --cn-scale 2.0
+uv run gentuber --source 0 --ip-scale 0.4 --cn-scale 2.0
 
 # 시간적 피드백 없이 (각 프레임 독립)
-uv run live2d --source 0 --feedback 1.0
+uv run gentuber --source 0 --feedback 1.0
 
 # 댄스 영상 일괄 처리
-uv run live2d --source dance.mp4 -o dance_anime.mp4 --steps 4
+uv run gentuber --source dance.mp4 -o dance_anime.mp4 --steps 4
 
 # VTuber 반샷 모드
-uv run live2d --source 0 --half-body
+uv run gentuber --source 0 --half-body
 ```
 
 ## IP-Adapter 백엔드 동작 원리

@@ -592,6 +592,52 @@ wheels = [
 ]
 
 [[package]]
+name = "gentuber-v1"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "accelerate" },
+    { name = "controlnet-aux" },
+    { name = "diffusers" },
+    { name = "huggingface-hub" },
+    { name = "mediapipe" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "opencv-python" },
+    { name = "peft" },
+    { name = "pillow" },
+    { name = "safetensors" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "transformers" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "hatchling" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", specifier = ">=0.27.0" },
+    { name = "controlnet-aux", specifier = ">=0.0.7" },
+    { name = "diffusers", specifier = ">=0.27.0" },
+    { name = "huggingface-hub", specifier = ">=0.21.0" },
+    { name = "mediapipe", specifier = ">=0.10.9" },
+    { name = "numpy", specifier = ">=1.26.0" },
+    { name = "opencv-python", specifier = ">=4.9.0" },
+    { name = "peft", specifier = ">=0.18.1" },
+    { name = "pillow", specifier = ">=10.2.0" },
+    { name = "safetensors", specifier = ">=0.4.0" },
+    { name = "torch", url = "https://download.pytorch.org/whl/cu128/torch-2.7.0%2Bcu128-cp312-cp312-win_amd64.whl" },
+    { name = "torchvision", url = "https://download.pytorch.org/whl/cu128/torchvision-0.22.0%2Bcu128-cp312-cp312-win_amd64.whl" },
+    { name = "transformers", specifier = ">=4.38.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "hatchling", specifier = ">=1.29.0" }]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1728,52 +1774,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f0/7a/1c7270340330e575b92f397352af856a8c06f230aa3e76f86b39d01b416a/pyyaml-6.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4ad1906908f2f5ae4e5a8ddfce73c320c2a1429ec52eafd27138b7f1cbe341c9", size = 174062, upload-time = "2025-09-25T21:32:55.767Z" },
     { url = "https://files.pythonhosted.org/packages/f1/12/de94a39c2ef588c7e6455cfbe7343d3b2dc9d6b6b2f40c4c6565744c873d/pyyaml-6.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:ebc55a14a21cb14062aa4162f906cd962b28e2e9ea38f9b4391244cd8de4ae0b", size = 149341, upload-time = "2025-09-25T21:32:56.828Z" },
 ]
-
-[[package]]
-name = "realtime-live2d"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "accelerate" },
-    { name = "controlnet-aux" },
-    { name = "diffusers" },
-    { name = "huggingface-hub" },
-    { name = "mediapipe" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "opencv-python" },
-    { name = "peft" },
-    { name = "pillow" },
-    { name = "safetensors" },
-    { name = "torch" },
-    { name = "torchvision" },
-    { name = "transformers" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "hatchling" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "accelerate", specifier = ">=0.27.0" },
-    { name = "controlnet-aux", specifier = ">=0.0.7" },
-    { name = "diffusers", specifier = ">=0.27.0" },
-    { name = "huggingface-hub", specifier = ">=0.21.0" },
-    { name = "mediapipe", specifier = ">=0.10.9" },
-    { name = "numpy", specifier = ">=1.26.0" },
-    { name = "opencv-python", specifier = ">=4.9.0" },
-    { name = "peft", specifier = ">=0.18.1" },
-    { name = "pillow", specifier = ">=10.2.0" },
-    { name = "safetensors", specifier = ">=0.4.0" },
-    { name = "torch", url = "https://download.pytorch.org/whl/cu128/torch-2.7.0%2Bcu128-cp312-cp312-win_amd64.whl" },
-    { name = "torchvision", url = "https://download.pytorch.org/whl/cu128/torchvision-0.22.0%2Bcu128-cp312-cp312-win_amd64.whl" },
-    { name = "transformers", specifier = ">=4.38.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "hatchling", specifier = ">=1.29.0" }]
 
 [[package]]
 name = "regex"

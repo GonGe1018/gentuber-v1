@@ -80,7 +80,7 @@ def main():
     )
     interp = FrameInterpolator(alpha=cfg.interp_alpha)
     renderer = Renderer(
-        title="Realtime Live2D — Webcam",
+        title="GenTuber v1 — Webcam",
         show_fps=True,
         show_skeleton=cfg.show_skeleton_overlay,
     )
