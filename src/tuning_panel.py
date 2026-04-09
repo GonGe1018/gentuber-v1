@@ -54,7 +54,6 @@ class TuningPanel:
             foreground="#80cbc4",
             font=("Segoe UI", 11, "bold"),
         )
-        style.configure("Dark.TScale", background="#2b2b2b", troughcolor="#404040")
         style.configure("Apply.TButton", font=("Segoe UI", 10, "bold"))
 
         main = ttk.Frame(root, style="Dark.TFrame", padding=10)
@@ -83,13 +82,20 @@ class TuningPanel:
             val_label.pack(side="right")
             self._value_labels[key] = val_label
 
-            scale = ttk.Scale(
+            scale = tk.Scale(
                 row,
                 from_=lo,
                 to=hi,
                 variable=var,
                 orient="horizontal",
-                style="Dark.TScale",
+                resolution=step,
+                showvalue=False,
+                bg="#2b2b2b",
+                fg="#e0e0e0",
+                troughcolor="#404040",
+                highlightthickness=0,
+                bd=0,
+                length=200,
                 command=lambda v, k=key: self._on_slide(k),
             )
             scale.pack(side="right", fill="x", expand=True, padx=(4, 4))
