@@ -130,6 +130,10 @@ uv run gentuber --source 0 --half-body
 - **Latent Feedback**: 이전 프레임의 latent를 직접 재사용 (VAE 인코드 사이클 없음 → 색상 드리프트 없음)
 - **적응형 모션**: 작은 움직임 = 적은 디노이즈 스텝 (빠름), 큰 움직임 = txt2img 리셋 (깨끗함)
 
+## 런타임 튜닝
+
+라이브 모드에서 영상 창 옆에 튜닝 패널이 자동으로 열립니다. IP-Adapter, ControlNet, guidance, feedback, 모션 임계값을 슬라이더로 조절하고 Apply 클릭하면 모델 재로딩 없이 즉시 반영됩니다.
+
 ## 설정
 
 `config.py`를 편집하여 기본값을 변경할 수 있습니다:

@@ -130,6 +130,10 @@ Frame 3:  Latent₂ + noise → UNet + ControlNet(pose₃) + IP-Adapter(characte
 - **Latent Feedback**: Previous frame's latent reused directly (no VAE encode cycle → no color drift)
 - **Adaptive Motion**: Small motion = fewer denoise steps (fast), large motion = full txt2img reset (clean)
 
+## Runtime Tuning
+
+In live mode, a tuning panel opens alongside the video window. Adjust IP-Adapter, ControlNet, guidance, feedback, and motion thresholds with sliders, then click Apply — no model reload needed.
+
 ## Configuration
 
 Edit `config.py` for persistent defaults:
