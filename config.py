@@ -96,6 +96,16 @@ class Config:
     # Temporal feedback
     temporal_feedback_strength: float = 0.2
 
+    # Adaptive motion thresholds
+    #   motion_lo: below this ctrl_diff = jitter, use base feedback strength
+    #   motion_hi: above this = large motion, use max_strength (near full reset)
+    #   motion_max_strength: cap for adaptive strength (0.85 = strong re-denoise)
+    #   pose_empty_threshold: if pose energy < this, treat as no person → reset
+    motion_lo: float = 0.008
+    motion_hi: float = 0.04
+    motion_max_strength: float = 0.85
+    pose_empty_threshold: float = 0.001
+
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"

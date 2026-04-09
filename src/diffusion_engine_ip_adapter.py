@@ -285,12 +285,12 @@ class DiffusionEngineIPAdapter:
 
         # Adaptive feedback parameters
         base_strength = self._feedback_strength  # 0.3 = default minimum
-        max_strength = 0.85  # cap to avoid full reset every frame
+        max_strength = cfg.motion_max_strength
         # ctrl_diff thresholds (measured: jitter ~0.005, small move ~0.01, big move ~0.025)
-        motion_lo = 0.008  # below this = jitter, use base_strength
-        motion_hi = 0.04  # above this = large motion, use max_strength
+        motion_lo = cfg.motion_lo
+        motion_hi = cfg.motion_hi
         # If control map is nearly empty (person left), reset
-        pose_empty_threshold = 0.001
+        pose_empty_threshold = cfg.pose_empty_threshold
 
         copy_stream = torch.cuda.Stream()
         prev_gpu_frame: torch.Tensor | None = None

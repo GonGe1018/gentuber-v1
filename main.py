@@ -160,6 +160,24 @@ def parse_args():
         help="Temporal feedback strength (0.3=strong coherence, 1.0=no feedback, default: 0.3)",
     )
     p.add_argument(
+        "--motion-lo",
+        type=float,
+        default=None,
+        help="Adaptive motion: ctrl_diff below this = jitter (default: 0.008)",
+    )
+    p.add_argument(
+        "--motion-hi",
+        type=float,
+        default=None,
+        help="Adaptive motion: ctrl_diff above this = large motion reset (default: 0.04)",
+    )
+    p.add_argument(
+        "--motion-max",
+        type=float,
+        default=None,
+        help="Adaptive motion: max feedback strength cap (default: 0.85)",
+    )
+    p.add_argument(
         "--output",
         "-o",
         default=None,
@@ -289,6 +307,12 @@ def main() -> None:
         cfg.guidance_scale = max(1.0, min(3.0, args.guidance))
     if args.feedback is not None:
         cfg.temporal_feedback_strength = max(0.0, min(1.0, args.feedback))
+    if args.motion_lo is not None:
+        cfg.motion_lo = max(0.0, args.motion_lo)
+    if args.motion_hi is not None:
+        cfg.motion_hi = max(0.0, args.motion_hi)
+    if args.motion_max is not None:
+        cfg.motion_max_strength = max(0.0, min(1.0, args.motion_max))
 
     # Resolve output: CLI --output takes priority over GUI setting
     output_path = args.output or gui_output
