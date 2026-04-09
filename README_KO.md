@@ -180,7 +180,8 @@ assets/
 
 | 브랜치 | 설명 |
 |---|---|
-| `master` | 현재 — IP-Adapter + ControlNet + latent feedback |
+| `master` | 현재 — IP-Adapter + ControlNet + 적응형 모션 |
+| `dev/v0.0.8-adaptive-motion` | 적응형 모션 임계값 설정 |
 | `dev/v0.0.7-latent-feedback` | Latent 레벨 temporal feedback |
 | `dev/v0.0.6-vtuber-halfbody` | VTuber 반샷 모드 |
 | `dev/v0.0.5-ip-adapter-gui` | IP-Adapter + GUI 설정 패널 |

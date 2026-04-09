@@ -181,7 +181,8 @@ assets/
 
 | Branch | Description |
 |---|---|
-| `master` | Current — IP-Adapter + ControlNet + latent feedback |
+| `master` | Current — IP-Adapter + ControlNet + adaptive motion |
+| `dev/v0.0.8-adaptive-motion` | Configurable adaptive motion thresholds |
 | `dev/v0.0.7-latent-feedback` | Latent-level temporal feedback |
 | `dev/v0.0.6-vtuber-halfbody` | VTuber half-body mode |
 | `dev/v0.0.5-ip-adapter-gui` | IP-Adapter + GUI settings panel |
