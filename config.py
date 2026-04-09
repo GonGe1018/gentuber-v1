@@ -106,11 +106,6 @@ class Config:
     motion_max_strength: float = 0.85
     pose_empty_threshold: float = 0.001
 
-    # Periodic full reset: every N frames, force txt2img from scratch
-    #   Prevents latent drift from accumulating over time
-    #   0 = disabled, 30 = reset every ~2-3 sec at 13 FPS
-    periodic_reset_frames: int = 30
-
     # Hardware
     device: str = "cuda"  # "cuda" | "cpu" | "mps"
     dtype: str = "float16"  # "float16" | "bfloat16" | "float32"
