@@ -6,11 +6,12 @@ Real-time anime character animation driven by webcam or video input. Your body m
 
 ## Demo
 
-https://github.com/GonGe1018/gentuber-v1/raw/master/assets/demo_sidebyside_mixkit.mp4
+```bash
+# Generate side-by-side demo (Source | Skeleton | Generated)
+uv run gentuber --no-gui --source input.mp4 --output demo.mp4 --half-body
+```
 
-https://github.com/GonGe1018/gentuber-v1/raw/master/assets/demo_sidebyside_pexels.mp4
-
-Source → Skeleton → Generated (256px, ~13 FPS on RTX 5070 Ti)
+~13 FPS on RTX 5070 Ti at 256px
 
 ## Architecture
 
