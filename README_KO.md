@@ -4,6 +4,14 @@
 
 웹캠 또는 영상 입력으로 애니메이션 캐릭터를 실시간 구동합니다. MediaPipe로 신체 포즈를 추출하고, Stable Diffusion 기반 파이프라인이 해당 포즈를 따라하는 애니메이션 캐릭터를 생성합니다.
 
+## 데모
+
+https://github.com/user-attachments/assets/demo_sidebyside_mixkit.mp4
+
+https://github.com/user-attachments/assets/demo_sidebyside_pexels.mp4
+
+Source → Skeleton → Generated (256px, RTX 5070 Ti 기준 ~13 FPS)
+
 ## 아키텍처
 
 ```
