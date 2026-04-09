@@ -54,7 +54,7 @@ class Config:
         "blue hair, sailor collar, sailor uniform, "
         "glowing, lens flare, light particles, sparkle, bloom, "
         "gradient background, detailed background, scenery, outdoors, "
-        "multiple girls, extra limbs, deformed, ugly, duplicate"
+        "multiple girls, extra limbs, deformed, ugly, duplicate, 2girls, multiple body, multiple face, multiple head"
     )
 
     # Noise seed for reproducible output (42 = fixed, -1 = random each run)
